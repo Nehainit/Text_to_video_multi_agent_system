@@ -1,0 +1,1117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Softframe — Ideas in motion</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #514463;
+      --muted: #8d819d;
+      --accent: #806ca8;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: 24px 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      font-family: Inter, ui-rounded, "SF Pro Rounded", system-ui, -apple-system, sans-serif;
+      background: #fff9fd;
+      isolation: isolate;
+    }
+
+    .aurora {
+      position: fixed;
+      z-index: -2;
+      inset: -30vmax;
+      overflow: hidden;
+      background:
+        radial-gradient(ellipse 34% 29% at 25% 30%, #ffc6e8 0%, transparent 72%),
+        radial-gradient(ellipse 32% 30% at 73% 27%, #bce7ff 0%, transparent 72%),
+        radial-gradient(ellipse 33% 30% at 34% 73%, #fff2a9 0%, transparent 72%),
+        radial-gradient(ellipse 34% 31% at 72% 72%, #d9bfff 0%, transparent 72%);
+      transform: translate3d(0, 0, 0) scale(1.05);
+      animation: auroraDrift 22s ease-in-out infinite alternate;
+      will-change: transform;
+    }
+
+    .grain {
+      position: fixed;
+      z-index: -1;
+      inset: 0;
+      pointer-events: none;
+      opacity: .46;
+      background-image: radial-gradient(circle, rgba(255,255,255,.86) 0 1.25px, transparent 1.5px);
+      background-size: 38px 38px;
+      mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+    }
+
+    .brand {
+      position: fixed;
+      z-index: 5;
+      top: 28px;
+      left: 32px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: var(--ink);
+      text-decoration: none;
+      user-select: none;
+    }
+
+    .brand-mark {
+      position: relative;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .88);
+      border-radius: 13px;
+      color: #fff;
+      background: linear-gradient(145deg, #efafd2 2%, #a9bde1 52%, #9c86c3 100%);
+      box-shadow: 0 9px 25px rgba(104, 77, 137, .2), inset 0 1px 1px rgba(255, 255, 255, .5);
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      width: 25px;
+      height: 25px;
+      top: -13px;
+      right: -10px;
+      border-radius: 50%;
+      background: rgba(255, 244, 185, .8);
+      filter: blur(5px);
+    }
+
+    .brand-mark svg { width: 21px; height: 21px; }
+    .brand-name { display: block; font-size: 17px; font-weight: 780; letter-spacing: -.025em; line-height: 1; }
+    .brand-tagline { display: block; margin-top: 4px; color: rgba(81, 68, 99, .52); font-size: 10px; font-weight: 650; letter-spacing: .105em; text-transform: uppercase; }
+
+    .projects-link {
+      position: fixed;
+      z-index: 5;
+      top: 27px;
+      right: 32px;
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 0 15px 0 13px;
+      border: 1px solid rgba(255, 255, 255, .84);
+      border-radius: 14px;
+      color: rgba(81, 68, 99, .78);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: capitalize;
+      background: rgba(255, 255, 255, .46);
+      box-shadow: 0 9px 26px rgba(104, 77, 137, .1), inset 0 1px 0 rgba(255, 255, 255, .8);
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+
+    .projects-link:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, .7);
+      box-shadow: 0 12px 30px rgba(104, 77, 137, .15), inset 0 1px 0 #fff;
+    }
+
+    .projects-link:focus-visible { outline: 3px solid rgba(126, 108, 168, .24); outline-offset: 3px; }
+    .projects-link svg { width: 17px; height: 17px; }
+
+    .composer {
+      width: min(720px, calc(100vw - 32px));
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, .82);
+      border-radius: 28px;
+      background: rgba(255, 255, 255, .67);
+      box-shadow:
+        0 32px 80px rgba(103, 76, 137, .18),
+        inset 0 1px 0 rgba(255, 255, 255, .88);
+      transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .app {
+      width: min(760px, calc(100vw - 32px));
+    }
+
+    .app .composer { width: 100%; }
+
+    .prompt-view {
+      display: grid;
+      gap: 25px;
+    }
+
+    .prompt-view[hidden] { display: none; }
+
+    .hero-copy {
+      max-width: 610px;
+      margin: 0 auto;
+      text-align: center;
+      animation: viewIn 540ms 80ms cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .hero-kicker {
+      margin: 0 0 10px;
+      color: rgba(94, 75, 119, .58);
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .hero-title {
+      margin: 0;
+      color: #493d5a;
+      font-size: clamp(34px, 5vw, 52px);
+      font-weight: 760;
+      line-height: 1.03;
+      letter-spacing: -.048em;
+    }
+
+    .hero-title span {
+      color: #8b78aa;
+      background: linear-gradient(100deg, #b477a1, #788db9 76%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      margin: 13px 0 0;
+      color: rgba(81, 68, 99, .58);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .view {
+      animation: viewIn 480ms cubic-bezier(.2,.8,.2,1) both;
+    }
+
+    .view[hidden] { display: none; }
+
+    .composer:focus-within {
+      border-color: rgba(255, 255, 255, .98);
+      box-shadow:
+        0 36px 92px rgba(103, 76, 137, .23),
+        0 0 0 4px rgba(255, 255, 255, .22),
+        inset 0 1px 0 #fff;
+      transform: translateY(-2px);
+    }
+
+    textarea {
+      display: block;
+      width: 100%;
+      min-height: 150px;
+      max-height: min(42vh, 360px);
+      padding: 22px 22px 12px;
+      border: 0;
+      outline: 0;
+      resize: none;
+      overflow-y: auto;
+      color: var(--ink);
+      font: inherit;
+      font-size: clamp(17px, 2vw, 19px);
+      line-height: 1.55;
+      caret-color: var(--accent);
+      background: transparent;
+    }
+
+    textarea::placeholder { color: var(--muted); opacity: .82; }
+
+    .composer-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 7px 7px;
+    }
+
+    .field {
+      min-width: 0;
+    }
+
+    .field span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .field input,
+    .field select {
+      height: 42px;
+      border: 1px solid rgba(255, 255, 255, .76);
+      border-radius: 14px;
+      outline: 0;
+      padding: 0 36px 0 14px;
+      color: var(--ink);
+      font: inherit;
+      font-size: 15px;
+      background: rgba(255, 255, 255, .48);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .82);
+    }
+
+    .field select {
+      appearance: none;
+      background-image:
+        linear-gradient(45deg, transparent 50%, rgba(81, 68, 99, .68) 50%),
+        linear-gradient(135deg, rgba(81, 68, 99, .68) 50%, transparent 50%);
+      background-position: calc(100% - 18px) 18px, calc(100% - 12px) 18px;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
+
+    .field input {
+      width: 150px;
+      padding-right: 14px;
+    }
+
+    .field select {
+      width: 128px;
+    }
+
+    .field input:focus,
+    .field select:focus {
+      border-color: rgba(128, 108, 168, .34);
+      background: rgba(255, 255, 255, .78);
+    }
+
+    .send {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border: 1px solid rgba(255, 255, 255, .8);
+      border-radius: 15px;
+      color: #fff;
+      background: linear-gradient(135deg, #ad8fc8, #7d83ba);
+      box-shadow: 0 8px 22px rgba(108, 82, 145, .25);
+      cursor: pointer;
+      transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+    }
+
+    .send:hover { transform: translateY(-2px); box-shadow: 0 11px 26px rgba(108, 82, 145, .32); }
+    .send:active { transform: translateY(0) scale(.96); }
+    .send:focus-visible { outline: 3px solid rgba(126, 108, 168, .28); outline-offset: 3px; }
+    .send:disabled { opacity: .42; cursor: default; transform: none; box-shadow: none; }
+    .send svg { width: 19px; height: 19px; }
+
+    .progress-card,
+    .review-card,
+    .result-card {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, .82);
+      border-radius: 30px;
+      background: rgba(255, 255, 255, .72);
+      box-shadow: 0 32px 90px rgba(103, 76, 137, .19), inset 0 1px 0 #fff;
+    }
+
+    .progress-card { padding: clamp(26px, 5vw, 46px); }
+
+    .review-card { padding: clamp(26px, 5vw, 46px); }
+
+    .review-copy { margin: 10px 0 20px; color: var(--muted); font-size: 14px; }
+
+    .review-label {
+      display: block;
+      margin: 14px 0 7px;
+      font-size: 12px;
+      font-weight: 750;
+    }
+
+    .story-editor,
+    .review-note {
+      width: 100%;
+      border: 1px solid rgba(111, 91, 138, .16);
+      border-radius: 15px;
+      outline: 0;
+      color: var(--ink);
+      font: inherit;
+      background: rgba(255, 255, 255, .7);
+    }
+
+    .story-editor {
+      min-height: 240px;
+      max-height: 45vh;
+      padding: 16px;
+      resize: vertical;
+      font-size: 15px;
+    }
+
+    .review-note { height: 42px; padding: 0 13px; }
+
+    .story-editor:focus,
+    .review-note:focus { border-color: rgba(128, 108, 168, .4); background: #fff; }
+
+    .review-error { min-height: 20px; margin: 10px 0; color: #a14f6f; font-size: 13px; }
+    .review-error.info { color: var(--muted); }
+    .review-error.success { color: #527f69; }
+
+    .review-actions,
+    .storyboard-review-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+    .storyboard-list { display: grid; gap: 10px; max-height: 48vh; margin: 20px 0; overflow-y: auto; }
+
+    .scene-card {
+      padding: 15px;
+      border: 1px solid rgba(111, 91, 138, .13);
+      border-radius: 15px;
+      background: rgba(255, 255, 255, .62);
+    }
+
+    .scene-card h2 { margin: 0 0 8px; font-size: 15px; }
+    .scene-card p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .scene-card strong { color: var(--ink); }
+
+    .mood-board {
+      width: 100%;
+      max-height: 320px;
+      display: block;
+      border-radius: 18px;
+      object-fit: cover;
+      background: rgba(111, 91, 138, .08);
+    }
+
+    .visual-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+    .visual-scene { overflow: hidden; padding: 0; }
+    .visual-scene img { width: 100%; aspect-ratio: 9 / 16; display: block; object-fit: cover; background: rgba(111, 91, 138, .08); }
+    .visual-scene-copy { padding: 13px; }
+    .visual-scene .review-note { margin-top: 10px; }
+
+    .artifact-summary { display: grid; gap: 8px; padding: 12px 14px 2px; }
+    .artifact-summary details { padding: 10px 12px; border-radius: 13px; background: rgba(255, 255, 255, .55); }
+    .artifact-summary summary { cursor: pointer; font-size: 13px; font-weight: 750; }
+    .artifact-story { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .artifact-summary .storyboard-list { max-height: none; margin: 10px 0 0; }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 750;
+      letter-spacing: .13em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      color: #493d5a;
+      font-size: clamp(26px, 5vw, 38px);
+      line-height: 1.13;
+      letter-spacing: -.035em;
+    }
+
+    .status-copy {
+      min-height: 25px;
+      margin: 12px 0 28px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .progress-track {
+      height: 7px;
+      margin-bottom: 28px;
+      overflow: hidden;
+      border-radius: 99px;
+      background: rgba(116, 93, 143, .1);
+    }
+
+    .progress-fill {
+      width: 8%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #f0a8cf, #9fbde5, #b29bd7);
+      transition: width 900ms cubic-bezier(.2,.8,.2,1);
+    }
+
+    .stages {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+      padding: 7px 10px;
+      border-radius: 15px;
+      color: rgba(81, 68, 99, .45);
+      transition: color 300ms ease, background 300ms ease;
+    }
+
+    .stage-icon {
+      width: 27px;
+      height: 27px;
+      display: grid;
+      place-items: center;
+      border: 1px solid rgba(117, 98, 144, .14);
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .stage.active {
+      color: var(--ink);
+      background: rgba(255, 255, 255, .62);
+    }
+
+    .stage.active .stage-icon {
+      border-color: transparent;
+      color: #fff;
+      background: linear-gradient(135deg, #d99dc5, #8e8bc4);
+      box-shadow: 0 0 0 5px rgba(176, 145, 198, .12);
+      animation: breathe 1.3s ease-in-out infinite;
+    }
+
+    .stage.done { color: rgba(81, 68, 99, .72); }
+    .stage.done .stage-icon { border-color: transparent; color: #fff; background: #a99ac1; }
+    .stage-state { font-size: 11px; }
+
+    .result-card { padding: 10px; }
+
+    .video-wrap {
+      position: relative;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      border-radius: 22px;
+      background: #231f2b;
+    }
+
+    video { width: 100%; height: 100%; display: block; object-fit: cover; }
+
+    .result-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 22px;
+      padding: 20px 14px 12px;
+    }
+
+    .result-title { margin: 0 0 5px; font-size: 20px; letter-spacing: -.02em; }
+    .result-subtitle { margin: 0; color: var(--muted); font-size: 13px; }
+
+    .actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .action {
+      min-height: 40px;
+      padding: 0 15px;
+      border: 1px solid rgba(111, 91, 138, .13);
+      border-radius: 13px;
+      color: var(--ink);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 680;
+      text-decoration: none;
+      background: rgba(255, 255, 255, .7);
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease;
+    }
+
+    .action:hover { transform: translateY(-1px); background: #fff; }
+    .action.primary { border-color: transparent; color: #fff; background: linear-gradient(135deg, #a98cc4, #7d83ba); }
+    .action:disabled { opacity: .5; cursor: wait; transform: none; }
+
+    @keyframes viewIn {
+      from { opacity: 0; transform: translateY(12px) scale(.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes breathe {
+      50% { transform: scale(.88); box-shadow: 0 0 0 9px rgba(176, 145, 198, .06); }
+    }
+
+    @keyframes auroraDrift {
+      0%   { transform: translate3d(-2.5%, -1.5%, 0) scale(1.05) rotate(-1deg); }
+      50%  { transform: translate3d(1.5%, 2%, 0) scale(1.08) rotate(1deg); }
+      100% { transform: translate3d(3%, -1%, 0) scale(1.06) rotate(-.5deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .aurora { animation: none; }
+      .composer, .send { transition: none; }
+      .view, .stage.active .stage-icon { animation: none; }
+    }
+
+    @media (max-width: 520px) {
+      body { padding-top: 92px; }
+      .brand { top: 22px; left: 16px; transform: none; }
+      .brand-tagline { display: none; }
+      .projects-link { top: 20px; right: 16px; padding-inline: 12px; }
+      .projects-link .more-label { display: none; }
+      .composer { border-radius: 23px; }
+      textarea { min-height: 130px; padding: 18px 17px 8px; }
+      .composer-controls { flex-wrap: wrap; }
+      .field { flex: 1 1 calc(50% - 8px); }
+      .field input,
+      .field select { width: 100%; }
+      .send { margin-left: auto; }
+      .prompt-view { gap: 20px; }
+      .hero-title { font-size: 35px; }
+      .hero-subtitle { font-size: 14px; }
+      .result-info { align-items: flex-start; flex-direction: column; }
+      .actions { width: 100%; justify-content: flex-start; }
+      .review-actions,
+      .storyboard-review-actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="aurora" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <a class="brand" href="." aria-label="Softframe home">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M7.2 5.8h7.1a3.9 3.9 0 0 1 3.9 3.9v4.6a3.9 3.9 0 0 1-3.9 3.9H9.7a3.9 3.9 0 0 1-3.9-3.9V8.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="m10.3 9.1 4.7 2.9-4.7 2.9V9.1Z" fill="currentColor"/>
+        <path d="M5.5 3.8v3.4M3.8 5.5h3.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </span>
+    <span>
+      <span class="brand-name">Softframe</span>
+      <span class="brand-tagline">Ideas in motion</span>
+    </span>
+  </a>
+
+  <button class="projects-link" type="button" aria-label="View more projects">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="4" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+      <rect x="14" y="4" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+      <rect x="4" y="14" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+      <rect x="14" y="14" width="6" height="6" rx="1.5" stroke="currentColor" stroke-width="1.7"/>
+    </svg>
+    <span><span class="more-label">More </span>projects</span>
+  </button>
+
+  <main class="app">
+    <section class="prompt-view view" id="promptView">
+      <header class="hero-copy">
+        <p class="hero-kicker">AI-powered filmmaking</p>
+        <p class="hero-title">Imagine it. <span>Watch it move.</span></p>
+        <p class="hero-subtitle">Describe a moment, a mood, or an entire world. Softframe turns it into a finished film.</p>
+      </header>
+
+      <form class="composer" id="composer">
+        <textarea id="message" aria-label="Describe your video" placeholder="Write something soft and cinematic…" rows="1"></textarea>
+        <div class="composer-controls">
+          <label class="field">
+            <span>Tone</span>
+            <select id="tone">
+              <option>mystical</option>
+              <option>cinematic</option>
+              <option>emotional</option>
+              <option>funny</option>
+              <option>adventurous</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Duration</span>
+            <select id="duration">
+              <option>30 seconds</option>
+              <option>1 minute</option>
+              <option>2 minutes</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Language</span>
+            <select id="language">
+              <option>English</option>
+              <option>Hindi</option>
+              <option>Hinglish</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Characters</span>
+            <input id="characters" value="Raja, Rani">
+          </label>
+          <button class="send" type="submit" aria-label="Create video" disabled>
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="review-card view" id="reviewView" hidden>
+      <p class="eyebrow">Story review</p>
+      <h1>Review before production</h1>
+      <p class="review-copy">Approve the draft, edit it directly, or ask for a new version.</p>
+      <label class="review-label" for="storyEditor">Story</label>
+      <textarea class="story-editor" id="storyEditor" aria-label="Story draft"></textarea>
+      <label class="review-label" for="reviewNote">Regeneration note</label>
+      <input class="review-note" id="reviewNote" placeholder="For example: make it warmer and shorter">
+      <p class="review-error" id="reviewError" aria-live="polite" hidden></p>
+      <div class="review-actions">
+        <button class="action" id="regenerateStory" type="button">Regenerate</button>
+        <button class="action" id="saveStory" type="button">Use edited story</button>
+        <button class="action primary" id="approveStory" type="button">Approve and continue</button>
+      </div>
+    </section>
+
+    <section class="review-card view" id="storyboardReviewView" hidden>
+      <p class="eyebrow">Storyboard review</p>
+      <h1>Review every scene</h1>
+      <p class="review-copy">Images, audio, and video will only be generated after your approval.</p>
+      <div class="storyboard-list" id="storyboardList"></div>
+      <label class="review-label" for="storyboardNote">Regeneration note</label>
+      <input class="review-note" id="storyboardNote" placeholder="For example: use closer shots in scenes 2 and 3">
+      <p class="review-error" id="storyboardError" aria-live="polite" hidden></p>
+      <div class="storyboard-review-actions">
+        <button class="action" id="regenerateStoryboard" type="button">Regenerate</button>
+        <button class="action primary" id="approveStoryboard" type="button">Approve and produce video</button>
+      </div>
+    </section>
+
+    <section class="review-card view" id="visualStoryboardReviewView" hidden>
+      <p class="eyebrow">Visual storyboard review</p>
+      <h1>Confirm the mood and scenes</h1>
+      <p class="review-copy">Approve the visual direction, or add feedback only below the scenes that should be regenerated.</p>
+      <label class="review-label">Mood board</label>
+      <img class="mood-board" id="moodBoard" alt="Generated cinematic mood board">
+      <div class="visual-grid" id="visualStoryboardList"></div>
+      <p class="review-error" id="visualStoryboardError" aria-live="polite" hidden></p>
+      <div class="storyboard-review-actions visual-storyboard-review-actions">
+        <button class="action" id="regenerateVisualScenes" type="button">Regenerate selected scenes</button>
+        <button class="action primary" id="approveVisualStoryboard" type="button">Approve visuals and produce video</button>
+      </div>
+    </section>
+
+    <section class="progress-card view" id="progressView" aria-live="polite" hidden>
+      <p class="eyebrow">Your film is in production</p>
+      <h1>Bringing your idea to life</h1>
+      <p class="status-copy" id="statusCopy">Writing your story…</p>
+      <div class="progress-track" role="progressbar" aria-label="Video creation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="8">
+        <div class="progress-fill"></div>
+      </div>
+      <ol class="stages">
+        <li class="stage active"><span class="stage-icon">1</span><span>Writing the story</span><span class="stage-state">In progress</span></li>
+        <li class="stage"><span class="stage-icon">2</span><span>Building the storyboard</span><span class="stage-state">Waiting</span></li>
+        <li class="stage"><span class="stage-icon">3</span><span>Generating visuals and voice</span><span class="stage-state">Waiting</span></li>
+        <li class="stage"><span class="stage-icon">4</span><span>Editing scenes</span><span class="stage-state">Waiting</span></li>
+        <li class="stage"><span class="stage-icon">5</span><span>Finalizing your video</span><span class="stage-state">Waiting</span></li>
+      </ol>
+    </section>
+
+    <section class="result-card view" id="resultView" hidden>
+      <div class="video-wrap">
+        <video id="resultVideo" controls playsinline preload="metadata">
+          <source type="video/mp4">
+        </video>
+      </div>
+      <div class="artifact-summary">
+        <details>
+          <summary>Generated story</summary>
+          <p class="artifact-story" id="resultStory"></p>
+        </details>
+        <details>
+          <summary>Generated storyboard</summary>
+          <div class="storyboard-list" id="resultStoryboard"></div>
+        </details>
+        <details>
+          <summary>Approved mood board</summary>
+          <img class="mood-board" id="resultMoodBoard" alt="Approved cinematic mood board">
+        </details>
+        <details>
+          <summary>Approved visual storyboard</summary>
+          <div class="visual-grid" id="resultVisualStoryboard"></div>
+        </details>
+      </div>
+      <div class="result-info">
+        <div>
+          <h2 class="result-title">Your video is ready</h2>
+          <p class="result-subtitle">Made from your original idea.</p>
+        </div>
+        <div class="actions">
+          <button class="action" id="tryAgain" type="button">Try something else</button>
+          <button class="action" id="editPrompt" type="button">Edit prompt</button>
+          <a class="action primary" id="exportVideo" href="#" download="my-video.mp4">Export</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const composer = document.querySelector('#composer');
+    const promptView = document.querySelector('#promptView');
+    const reviewView = document.querySelector('#reviewView');
+    const storyboardReviewView = document.querySelector('#storyboardReviewView');
+    const visualStoryboardReviewView = document.querySelector('#visualStoryboardReviewView');
+    const message = document.querySelector('#message');
+    const sendButton = document.querySelector('.send');
+    const progressView = document.querySelector('#progressView');
+    const resultView = document.querySelector('#resultView');
+    const resultVideo = document.querySelector('#resultVideo');
+    const resultSource = resultVideo.querySelector('source');
+    const exportVideo = document.querySelector('#exportVideo');
+    const progressFill = document.querySelector('.progress-fill');
+    const progressTrack = document.querySelector('.progress-track');
+    const statusCopy = document.querySelector('#statusCopy');
+    const tone = document.querySelector('#tone');
+    const duration = document.querySelector('#duration');
+    const language = document.querySelector('#language');
+    const characters = document.querySelector('#characters');
+    const storyEditor = document.querySelector('#storyEditor');
+    const reviewNote = document.querySelector('#reviewNote');
+    const reviewError = document.querySelector('#reviewError');
+    const reviewButtons = [...document.querySelectorAll('.review-actions button')];
+    const storyboardList = document.querySelector('#storyboardList');
+    const storyboardNote = document.querySelector('#storyboardNote');
+    const storyboardError = document.querySelector('#storyboardError');
+    const storyboardReviewButtons = [...document.querySelectorAll('#storyboardReviewView .storyboard-review-actions button')];
+    const moodBoard = document.querySelector('#moodBoard');
+    const visualStoryboardList = document.querySelector('#visualStoryboardList');
+    const visualStoryboardError = document.querySelector('#visualStoryboardError');
+    const visualStoryboardReviewButtons = [...document.querySelectorAll('.visual-storyboard-review-actions button')];
+    const resultStory = document.querySelector('#resultStory');
+    const resultStoryboard = document.querySelector('#resultStoryboard');
+    const resultMoodBoard = document.querySelector('#resultMoodBoard');
+    const resultVisualStoryboard = document.querySelector('#resultVisualStoryboard');
+    const stages = [...document.querySelectorAll('.stage')];
+    const stageCopy = [
+      'Writing your story…',
+      'Mapping every scene and camera angle…',
+      'Generating visuals, motion, and voice…',
+      'Cutting the scenes into a seamless film…',
+      'Adding the final cinematic touches…'
+    ];
+    let generationTimers = [];
+    let reviewThreadId = null;
+    let generatedArtifacts = { story: '', storyboard: [], mood_board_url: null, image_urls: [], video_file: null, video_url: null };
+
+    function syncComposer() {
+      sendButton.disabled = !message.value.trim();
+      message.style.height = 'auto';
+      message.style.height = `${Math.min(message.scrollHeight, 360)}px`;
+    }
+
+    message.addEventListener('input', syncComposer);
+    message.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        if (message.value.trim()) composer.requestSubmit();
+      }
+    });
+
+    composer.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!message.value.trim()) return;
+      startGeneration();
+    });
+
+    function showView(view) {
+      [promptView, reviewView, storyboardReviewView, visualStoryboardReviewView, progressView, resultView].forEach(item => {
+        item.hidden = item !== view;
+      });
+    }
+
+    function setStage(index) {
+      stages.forEach((stage, stageIndex) => {
+        stage.classList.toggle('active', stageIndex === index);
+        stage.classList.toggle('done', stageIndex < index);
+        stage.querySelector('.stage-icon').textContent = stageIndex < index ? '✓' : stageIndex + 1;
+        stage.querySelector('.stage-state').textContent = stageIndex < index ? 'Done' : stageIndex === index ? 'In progress' : 'Waiting';
+      });
+      const progress = [8, 28, 50, 72, 90][index];
+      progressFill.style.width = `${progress}%`;
+      progressTrack.setAttribute('aria-valuenow', progress);
+      statusCopy.textContent = stageCopy[index];
+    }
+
+    function showProgress(startIndex = 0) {
+      generationTimers.forEach(clearTimeout);
+      generationTimers = [];
+      showView(progressView);
+      setStage(startIndex);
+      for (let index = startIndex + 1; index < stages.length; index += 1) {
+        generationTimers.push(setTimeout(() => setStage(index), (index - startIndex) * 18000));
+      }
+    }
+
+    async function startGeneration() {
+      reviewThreadId = null;
+      generatedArtifacts = { story: '', storyboard: [], mood_board_url: null, image_urls: [], video_file: null, video_url: null };
+      showProgress();
+
+      try {
+        const response = await fetch('/api/create-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            topic: message.value.trim(),
+            tone: tone.value,
+            duration: duration.value,
+            language: language.value,
+            characters: characters.value
+          })
+        });
+        const data = await response.json();
+        const errorMessage = data.error || data.detail?.error || data.detail;
+        if (!response.ok) throw new Error(errorMessage || 'Video creation failed.');
+        showGraphResult(data);
+      } catch (error) {
+        generationTimers.forEach(clearTimeout);
+        statusCopy.textContent = error.message;
+        sendButton.disabled = false;
+      }
+    }
+
+    function renderStoryboard(scenes, container) {
+      const cards = scenes.map((scene, index) => {
+        const card = document.createElement('article');
+        card.className = 'scene-card';
+        const title = document.createElement('h2');
+        title.textContent = `Scene ${scene.scene_number ?? index + 1} · ${scene.start_time || ''}–${scene.end_time || ''}`;
+        card.append(title);
+        [
+          ['Visuals', scene.visuals],
+          ['Camera', scene.camera],
+          ['Narration', scene.narration]
+        ].forEach(([label, value]) => {
+          if (!value) return;
+          const line = document.createElement('p');
+          const heading = document.createElement('strong');
+          heading.textContent = `${label}: `;
+          line.append(heading, document.createTextNode(value));
+          card.append(line);
+        });
+        return card;
+      });
+      container.replaceChildren(...cards);
+    }
+
+    function renderVisualStoryboard(scenes, imageUrls, container, editable = false) {
+      const cards = scenes.map((scene, index) => {
+        const card = document.createElement('article');
+        card.className = 'scene-card visual-scene';
+        const image = document.createElement('img');
+        image.src = imageUrls[index] || '';
+        image.alt = `Generated visual for scene ${scene.scene_number ?? index + 1}`;
+        const copy = document.createElement('div');
+        copy.className = 'visual-scene-copy';
+        const title = document.createElement('h2');
+        title.textContent = `Scene ${scene.scene_number ?? index + 1}`;
+        const description = document.createElement('p');
+        description.textContent = scene.visuals || '';
+        copy.append(title, description);
+        if (editable) {
+          const feedback = document.createElement('input');
+          feedback.className = 'review-note scene-feedback';
+          feedback.dataset.sceneNumber = scene.scene_number ?? index + 1;
+          feedback.setAttribute('aria-label', `Feedback for scene ${scene.scene_number ?? index + 1}`);
+          feedback.placeholder = 'Leave blank to keep this scene';
+          copy.append(feedback);
+        }
+        card.append(image, copy);
+        return card;
+      });
+      container.replaceChildren(...cards);
+    }
+
+    function showGraphResult(data) {
+      generatedArtifacts = { ...generatedArtifacts, ...(data.artifacts || {}) };
+      if (data.status === 'review') {
+        generationTimers.forEach(clearTimeout);
+        reviewThreadId = data.thread_id;
+        storyEditor.value = generatedArtifacts.story || data.story;
+        reviewNote.value = '';
+        reviewError.hidden = true;
+        showView(reviewView);
+        storyEditor.focus();
+        return;
+      }
+      if (data.status === 'storyboard_review') {
+        generationTimers.forEach(clearTimeout);
+        reviewThreadId = data.thread_id;
+        renderStoryboard(generatedArtifacts.storyboard, storyboardList);
+        storyboardNote.value = '';
+        storyboardError.className = 'review-error success';
+        storyboardError.textContent = data.feedback ? `Applied feedback: ${data.feedback}` : '';
+        storyboardError.hidden = !data.feedback;
+        showView(storyboardReviewView);
+        document.querySelector('#approveStoryboard').focus();
+        return;
+      }
+      if (data.status === 'visual_storyboard_review') {
+        generationTimers.forEach(clearTimeout);
+        reviewThreadId = data.thread_id;
+        moodBoard.src = generatedArtifacts.mood_board_url || data.mood_board_url;
+        renderVisualStoryboard(generatedArtifacts.storyboard, generatedArtifacts.image_urls, visualStoryboardList, true);
+        visualStoryboardError.className = 'review-error success';
+        visualStoryboardError.textContent = data.feedback?.length
+          ? `Regenerated scene${data.feedback.length === 1 ? '' : 's'} ${data.feedback.map(item => item.scene_number).join(', ')}.`
+          : '';
+        visualStoryboardError.hidden = !data.feedback?.length;
+        showView(visualStoryboardReviewView);
+        document.querySelector('#approveVisualStoryboard').focus();
+        return;
+      }
+      showResult(data.video_url || generatedArtifacts.video_url || `/output/${data.video_file}`);
+    }
+
+    async function submitReview(action) {
+      const body = { thread_id: reviewThreadId, action };
+      if (action === 'edit') {
+        if (!storyEditor.value.trim()) {
+          reviewError.textContent = 'Story cannot be empty.';
+          reviewError.hidden = false;
+          return;
+        }
+        body.story = storyEditor.value;
+      }
+      if (action === 'regenerate') body.note = reviewNote.value;
+
+      reviewButtons.forEach(button => { button.disabled = true; });
+      reviewError.hidden = true;
+      if (action === 'approve') showProgress(1);
+
+      try {
+        const response = await fetch('/api/review-story', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        const errorMessage = data.error || data.detail?.error || data.detail;
+        if (!response.ok) throw new Error(errorMessage || 'Story review failed.');
+        showGraphResult(data);
+      } catch (error) {
+        showView(reviewView);
+        reviewError.textContent = error.message;
+        reviewError.hidden = false;
+      } finally {
+        reviewButtons.forEach(button => { button.disabled = false; });
+      }
+    }
+
+    async function submitStoryboardReview(action) {
+      const body = { thread_id: reviewThreadId, action };
+      if (action === 'regenerate') body.note = storyboardNote.value;
+
+      storyboardReviewButtons.forEach(button => { button.disabled = true; });
+      storyboardError.className = 'review-error info';
+      storyboardError.textContent = action === 'regenerate' ? 'Regenerating storyboard with your feedback…' : '';
+      storyboardError.hidden = action !== 'regenerate';
+      if (action === 'approve') showProgress(2);
+
+      try {
+        const response = await fetch('/api/review-storyboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        const errorMessage = data.error || data.detail?.error || data.detail;
+        if (!response.ok) throw new Error(errorMessage || 'Storyboard review failed.');
+        showGraphResult(data);
+      } catch (error) {
+        showView(storyboardReviewView);
+        storyboardError.className = 'review-error';
+        storyboardError.textContent = error.message;
+        storyboardError.hidden = false;
+      } finally {
+        storyboardReviewButtons.forEach(button => { button.disabled = false; });
+      }
+    }
+
+    async function submitVisualStoryboardReview(action) {
+      const body = { thread_id: reviewThreadId, action };
+      if (action === 'regenerate') {
+        body.feedback = [...document.querySelectorAll('.scene-feedback')]
+          .map(input => ({ scene_number: Number(input.dataset.sceneNumber), note: input.value.trim() }))
+          .filter(item => item.note);
+        if (!body.feedback.length) {
+          visualStoryboardError.className = 'review-error';
+          visualStoryboardError.textContent = 'Add feedback to at least one scene.';
+          visualStoryboardError.hidden = false;
+          return;
+        }
+      }
+
+      visualStoryboardReviewButtons.forEach(button => { button.disabled = true; });
+      visualStoryboardError.className = 'review-error info';
+      visualStoryboardError.textContent = action === 'regenerate' ? 'Regenerating only the selected scenes…' : '';
+      visualStoryboardError.hidden = action !== 'regenerate';
+      if (action === 'approve') showProgress(2);
+
+      try {
+        const response = await fetch('/api/review-visual-storyboard', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        const errorMessage = data.error || data.detail?.error || data.detail;
+        if (!response.ok) throw new Error(errorMessage || 'Visual storyboard review failed.');
+        showGraphResult(data);
+      } catch (error) {
+        showView(visualStoryboardReviewView);
+        visualStoryboardError.className = 'review-error';
+        visualStoryboardError.textContent = error.message;
+        visualStoryboardError.hidden = false;
+      } finally {
+        visualStoryboardReviewButtons.forEach(button => { button.disabled = false; });
+      }
+    }
+
+    function showResult(videoPath) {
+      generationTimers.forEach(clearTimeout);
+      stages.forEach(stage => {
+        stage.classList.remove('active');
+        stage.classList.add('done');
+        stage.querySelector('.stage-icon').textContent = '✓';
+        stage.querySelector('.stage-state').textContent = 'Done';
+      });
+      progressFill.style.width = '100%';
+      progressTrack.setAttribute('aria-valuenow', '100');
+      resultSource.src = videoPath;
+      exportVideo.href = videoPath;
+      resultStory.textContent = generatedArtifacts.story;
+      renderStoryboard(generatedArtifacts.storyboard, resultStoryboard);
+      resultMoodBoard.src = generatedArtifacts.mood_board_url || '';
+      renderVisualStoryboard(generatedArtifacts.storyboard, generatedArtifacts.image_urls, resultVisualStoryboard);
+      resultVideo.load();
+      showView(resultView);
+      resultVideo.play().catch(() => {});
+    }
+
+    function returnToComposer(clearPrompt) {
+      generationTimers.forEach(clearTimeout);
+      resultVideo.pause();
+      reviewThreadId = null;
+      if (clearPrompt) message.value = '';
+      syncComposer();
+      showView(promptView);
+      message.focus();
+    }
+
+    document.querySelector('#editPrompt').addEventListener('click', () => returnToComposer(false));
+    document.querySelector('#tryAgain').addEventListener('click', () => returnToComposer(true));
+    document.querySelector('#approveStory').addEventListener('click', () => submitReview('approve'));
+    document.querySelector('#saveStory').addEventListener('click', () => submitReview('edit'));
+    document.querySelector('#regenerateStory').addEventListener('click', () => submitReview('regenerate'));
+    document.querySelector('#approveStoryboard').addEventListener('click', () => submitStoryboardReview('approve'));
+    document.querySelector('#regenerateStoryboard').addEventListener('click', () => submitStoryboardReview('regenerate'));
+    document.querySelector('#approveVisualStoryboard').addEventListener('click', () => submitVisualStoryboardReview('approve'));
+    document.querySelector('#regenerateVisualScenes').addEventListener('click', () => submitVisualStoryboardReview('regenerate'));
+  </script>
+</body>
+</html>
