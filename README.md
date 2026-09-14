@@ -1,25 +1,84 @@
 # Magnific Video Automation Agent
 
+**Status: Active Development**
+
+Core pipeline is functional. Current work focuses on improving generation quality, video animation quality, evaluation, retry logic, and production readiness.
+
 A LangGraph pipeline that turns a story prompt into a narrated short video. It plans the story and shots, generates reference art and scene media, validates each stage, assembles a rough cut, and produces the final edit.
 
 ## Demo
 
-**WORK IN PROGRESS**
+<p align="center">
+  <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4">
+    <img src="demo/robot-story-poster.jpg" width="280" alt="Robot story video preview">
+  </a>
+  <br>
+  <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4"><strong>▶ Watch the 17-second 1080×1920 demo</strong></a>
+</p>
 
-![Softframe text-to-video interface](demo/softframe-ui.png)
+## Engineering snapshot
 
-[Watch the robot story demo](https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4) — 17 seconds, 1080×1920, H.264/AAC.
+| **189** automated tests | **24** graph stages | **4** judge retry routes | **2 + 3** default media workers |
+|---:|---:|---:|---:|
+| **3** aspect ratios | **4** LLM providers | **SQLite** checkpoint + resume | **Per-shot** regeneration |
 
-## Pipeline
+## Architecture
 
-```text
-Prompt → safety check → story → narration → scenes → visual beats → shots
-→ reference art → storyboard → image QA → motion → shot videos
-→ video validation → edit timeline → rough cut → combined judge
-→ subtitles → final edit
+```mermaid
+flowchart TB
+    U["Story prompt + controls"] --> API["FastAPI + browser UI"] --> G["LangGraph orchestrator"]
+    CP[("SQLite checkpoints")] <-. "persist + resume" .-> G
+
+    subgraph PRE["Pre-production agents"]
+        direction LR
+        S["Safety + Story"] --> HS{"Story HITL"}
+        HS --> N["Narration script + voice"]
+        N --> P["Scene + visual + shot planning"]
+        P --> HP{"Planning HITL gates"}
+        HP --> D["Director critique + image prompts"]
+    end
+
+    subgraph GEN["Media generation"]
+        direction LR
+        R["Character + mood references"] --> I["Shot images<br/>ThreadPool: 2 workers"]
+        I --> IQ["Image QA"] --> HV{"Storyboard HITL"}
+        HV --> M["Motion plans"] --> V["Shot videos<br/>ThreadPool: 3 workers"]
+    end
+
+    subgraph POST["Deterministic validation + assembly"]
+        direction LR
+        DV["Video validator"] --> T["Edit timeline"] --> RC["FFmpeg rough cut"]
+        RC --> J["Combined video judge"] --> SUB["Subtitles"] --> F["Final edit"]
+    end
+
+    G --> S
+    D --> R
+    V --> DV
+
+    IQ -. "failed shots" .-> I
+    HV -. "selected regeneration" .-> I
+    DV -. "technical retry" .-> V
+    T -. "clip-duration retry" .-> V
+    J -. "source image" .-> I
+    J -. "motion plan" .-> M
+    J -. "video generation" .-> V
+    J -. "edit timeline" .-> T
+
+    A[("Versioned artifacts<br/>JSON · PNG · MP3 · MP4")]
+    N -.-> A
+    R -.-> A
+    I -.-> A
+    V -.-> A
+    RC -.-> A
+    F -.-> A
+    A -. "optional publishing" .-> O[("MinIO")]
 ```
 
 Human review checkpoints and SQLite persistence allow interrupted runs to be reviewed or resumed. Detailed agent contracts are in [`docs/agents`](docs/agents/README.md).
+
+## Interface
+
+![Softframe text-to-video interface](demo/softframe-ui.png)
 
 ## Project structure
 
