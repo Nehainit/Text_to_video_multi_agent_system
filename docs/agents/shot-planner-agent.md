@@ -23,4 +23,4 @@ Approved story, narration and timing, scene plan, visual beats, derived characte
 
 ## Implementation
 
-[`config/shot_planning.yml`](../../config/shot_planning.yml) stores the prompt and controls. [`preproduction_agents.py`](../../preproduction_agents.py) implements `plan_shots`.
+[`config/shot_planning.yml`](../../config/shot_planning.yml) stores the prompt and controls. [`preproduction_agents.py`](../../video_automation/agents/preproduction_agents.py) implements `plan_shots`.

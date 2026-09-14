@@ -21,4 +21,4 @@ Approved story, original request, character definitions from approved requiremen
 
 ## Implementation
 
-[`image_agent.py`](../../image_agent.py) — `create_reference_package`
+[`image_agent.py`](../../video_automation/agents/image_agent.py) — `create_reference_package`

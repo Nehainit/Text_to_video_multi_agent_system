@@ -21,4 +21,4 @@ Ordered `sfx_files` and optional `music_file`.
 
 ## Implementation
 
-[`soundfx_agent.py`](../../soundfx_agent.py) — `create_soundfx`
+[`soundfx_agent.py`](../../video_automation/agents/soundfx_agent.py) — `create_soundfx`

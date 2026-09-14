@@ -16,4 +16,4 @@ Executes one approved motion plan against its approved still image and saves the
 
 ## Implementation
 
-[`config/shot_video_generation.yml`](../../config/shot_video_generation.yml) stores the execution contract and provider settings. [`shot_video_generation_agent.py`](../../shot_video_generation_agent.py) implements standard and refined generation metadata.
+[`config/shot_video_generation.yml`](../../config/shot_video_generation.yml) stores the execution contract and provider settings. [`shot_video_generation_agent.py`](../../video_automation/agents/shot_video_generation_agent.py) implements standard and refined generation metadata.

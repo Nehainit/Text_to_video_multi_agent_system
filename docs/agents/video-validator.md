@@ -16,4 +16,4 @@ Valid clips enter the Gemini primary Judge Panel. Invalid clips retry only Shot 
 
 ## Implementation
 
-[`video_validator.py`](../../video_validator.py)
+[`video_validator.py`](../../video_automation/agents/video_validator.py)

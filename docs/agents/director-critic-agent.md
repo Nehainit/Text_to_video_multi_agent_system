@@ -20,4 +20,4 @@ Validated `director_plan`, final textual `storyboard`, `director_approved`, and 
 
 ## Implementation
 
-[`preproduction_agents.py`](../../preproduction_agents.py) — `critique_shots`
+[`preproduction_agents.py`](../../video_automation/agents/preproduction_agents.py) — `critique_shots`

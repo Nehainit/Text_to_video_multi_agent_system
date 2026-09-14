@@ -15,4 +15,4 @@ Visually checks whether every generated keyframe matches its approved shot, imag
 
 ## Implementation
 
-[`config/shot_image_qa.yml`](../../config/shot_image_qa.yml) stores the reviewer contract. [`shot_image_qa_agent.py`](../../shot_image_qa_agent.py) implements visual review and strict output validation.
+[`config/shot_image_qa.yml`](../../config/shot_image_qa.yml) stores the reviewer contract. [`shot_image_qa_agent.py`](../../video_automation/agents/shot_image_qa_agent.py) implements visual review and strict output validation.

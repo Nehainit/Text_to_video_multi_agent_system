@@ -14,4 +14,4 @@ Retries are tracked per shot. Reports for unaffected shots are reused. Exhausted
 
 ## Implementation
 
-[`config/judge_panel.yml`](../../config/judge_panel.yml) contains all five judge contracts and shared controls. [`video_judge_panel.py`](../../video_judge_panel.py) validates reports, reconciles retry state, and provides the LangGraph nodes.
+[`config/judge_panel.yml`](../../config/judge_panel.yml) contains all five judge contracts and shared controls. [`video_judge_panel.py`](../../video_automation/agents/video_judge_panel.py) validates reports, reconciles retry state, and provides the LangGraph nodes.

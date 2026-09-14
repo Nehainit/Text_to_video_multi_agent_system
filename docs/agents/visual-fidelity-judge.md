@@ -14,4 +14,4 @@ This judge evaluates only visual fidelity. It does not evaluate story quality, c
 
 ## Implementation
 
-[`config/judge_panel.yml`](../../config/judge_panel.yml) stores the Gemini model and judge prompt. [`visual_fidelity_judge.py`](../../visual_fidelity_judge.py) assembles and validates this judge's report; [`gemini_judge.py`](../../gemini_judge.py) handles shared full-video upload and schema-constrained Gemini invocation.
+[`config/judge_panel.yml`](../../config/judge_panel.yml) stores the Gemini model and judge prompt. [`visual_fidelity_judge.py`](../../video_automation/agents/visual_fidelity_judge.py) assembles and validates this judge's report; [`gemini_judge.py`](../../video_automation/agents/gemini_judge.py) handles shared full-video upload and schema-constrained Gemini invocation.

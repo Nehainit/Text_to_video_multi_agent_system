@@ -16,4 +16,4 @@ Converts each approved, animation-ready still image into the motion and negative
 
 ## Implementation
 
-[`config/motion_planning.yml`](../../config/motion_planning.yml) stores the prompt and retry controls. [`motion_planner_agent.py`](../../motion_planner_agent.py) validates and returns ordered `motion_plans`.
+[`config/motion_planning.yml`](../../config/motion_planning.yml) stores the prompt and retry controls. [`motion_planner_agent.py`](../../video_automation/agents/motion_planner_agent.py) validates and returns ordered `motion_plans`.

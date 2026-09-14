@@ -74,7 +74,7 @@ longer stories may add more beats.
 ## Story Review Agent
 
 Each structurally valid candidate is passed to
-[`story_review_agent.py`](../../story_review_agent.py):
+[`story_review_agent.py`](../../video_automation/agents/story_review_agent.py):
 
 ```python
 review_story(parsed_requirements, story)
@@ -141,7 +141,7 @@ structured story in `story_outline`, alongside `parsed_requirements`.
 The existing human story review still follows that node. Direct calls to
 `create_story` include the evaluation list shown above.
 
-The standalone entry point in `story_agent.py` accepts a prompt argument,
+The standalone entry point in `video_automation/agents/story_agent.py` accepts a prompt argument,
 interactive input, or text from standard input and prints JSON only on success.
 It stops after the story agent.
 
@@ -155,4 +155,4 @@ Run the local checks without live model calls:
 
 ## Implementation
 
-[`story_agent.py`](../../story_agent.py)
+[`video_automation/agents/story_agent.py`](../../video_automation/agents/story_agent.py)

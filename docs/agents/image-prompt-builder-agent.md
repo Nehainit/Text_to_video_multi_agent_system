@@ -23,4 +23,4 @@ Every request passes an independent Image Prompt Faithfulness Review against the
 
 ## Implementation
 
-[`config/image_prompt_builder.yml`](../../config/image_prompt_builder.yml) stores the prompt and output contract. [`image_agent.py`](../../image_agent.py) implements `build_image_prompts` and passes its output to keyframe generation.
+[`config/image_prompt_builder.yml`](../../config/image_prompt_builder.yml) stores the prompt and output contract. [`image_agent.py`](../../video_automation/agents/image_agent.py) implements `build_image_prompts` and passes its output to keyframe generation.

@@ -21,4 +21,4 @@ Storyboard, image/video clips, narration audio, scene timings, SFX tracks, optio
 
 ## Implementation
 
-[`editor_agent.py`](../../editor_agent.py)
+[`editor_agent.py`](../../video_automation/agents/editor_agent.py)

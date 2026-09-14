@@ -21,4 +21,4 @@ A completed shared `AgentState` containing the story, references, plans, media a
 
 ## Implementation
 
-[`agent_graph.py`](../../agent_graph.py)
+[`agent_graph.py`](../../video_automation/agent_graph.py)

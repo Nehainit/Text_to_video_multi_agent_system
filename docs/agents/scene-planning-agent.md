@@ -33,4 +33,4 @@ graph pauses at `scene_plan_review`. The API endpoint
 
 ## Implementation
 
-[`preproduction_agents.py`](../../preproduction_agents.py) — `plan_scenes`
+[`preproduction_agents.py`](../../video_automation/agents/preproduction_agents.py) — `plan_scenes`

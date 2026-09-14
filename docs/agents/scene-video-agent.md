@@ -21,4 +21,4 @@ This helper remains for compatibility. The production graph now uses the Shot Vi
 
 ## Implementation
 
-[`image_agent.py`](../../image_agent.py) — `create_scene_videos_node`
+[`image_agent.py`](../../video_automation/agents/image_agent.py) — `create_scene_videos_node`

@@ -21,4 +21,4 @@ Ordered `image_files` corresponding one-to-one with storyboard shots.
 
 ## Implementation
 
-[`image_agent.py`](../../image_agent.py) — `create_visual_storyboard`
+[`image_agent.py`](../../video_automation/agents/image_agent.py) — `create_visual_storyboard`

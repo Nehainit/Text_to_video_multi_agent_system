@@ -25,4 +25,4 @@ The independent Visual Faithfulness Review checks semantic support after determi
 
 ## Implementation
 
-[`config/visual_planning.yml`](../../config/visual_planning.yml) stores the prompt and controls. [`preproduction_agents.py`](../../preproduction_agents.py) implements `create_visual_beats`.
+[`config/visual_planning.yml`](../../config/visual_planning.yml) stores the prompt and controls. [`preproduction_agents.py`](../../video_automation/agents/preproduction_agents.py) implements `create_visual_beats`.

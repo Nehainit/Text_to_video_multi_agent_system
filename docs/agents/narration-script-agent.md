@@ -29,7 +29,7 @@ Approved `story.idea`, `story.structure`, cached parsed requirements, and any ru
 
 ## Implementation
 
-[`preproduction_agents.py`](../../preproduction_agents.py) — `create_narration_script`
+[`preproduction_agents.py`](../../video_automation/agents/preproduction_agents.py) — `create_narration_script`
 
 The traceability reviewer returns `{"approved": true, "issues": []}`. Rejected
 issues identify the `segment_id`, unsupported phrase, and insufficient

@@ -17,4 +17,4 @@ Each result records the shot and scene IDs, image path or URL, character and loc
 
 ## Implementation
 
-[`config/shot_image_generation.yml`](../../config/shot_image_generation.yml) stores the system prompt and generation controls. [`image_agent.py`](../../image_agent.py) implements the agent in `_generate_requested_shot_images`.
+[`config/shot_image_generation.yml`](../../config/shot_image_generation.yml) stores the system prompt and generation controls. [`image_agent.py`](../../video_automation/agents/image_agent.py) implements the agent in `_generate_requested_shot_images`.

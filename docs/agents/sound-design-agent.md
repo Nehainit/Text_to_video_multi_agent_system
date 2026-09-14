@@ -21,4 +21,4 @@ One ordered `sound_design_plan` entry per storyboard shot.
 
 ## Implementation
 
-[`soundfx_agent.py`](../../soundfx_agent.py) — `create_sound_design_plan`
+[`soundfx_agent.py`](../../video_automation/agents/soundfx_agent.py) — `create_sound_design_plan`

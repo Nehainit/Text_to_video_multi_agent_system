@@ -20,4 +20,4 @@ Structured `subtitles` and `subtitle_file`.
 
 ## Implementation
 
-[`subtitle_agent.py`](../../subtitle_agent.py)
+[`subtitle_agent.py`](../../video_automation/agents/subtitle_agent.py)

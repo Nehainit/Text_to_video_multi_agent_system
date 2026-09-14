@@ -22,4 +22,4 @@ Scene Planning replaces `scene_timings` with timings for its final scene partiti
 
 ## Implementation
 
-[`narration_agent.py`](../../narration_agent.py)
+[`narration_agent.py`](../../video_automation/agents/narration_agent.py)
