@@ -4,6 +4,10 @@ A LangGraph pipeline that turns a story prompt into a narrated short video. It p
 
 ## Demo
 
+**WORK IN PROGRESS**
+
+![Softframe text-to-video interface](demo/softframe-ui.png)
+
 [Watch the robot story demo](https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4) — 17 seconds, 1080×1920, H.264/AAC.
 
 ## Pipeline
