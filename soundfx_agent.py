@@ -11,6 +11,8 @@ except ModuleNotFoundError:
     load_dotenv = lambda *args, **kwargs: None
 
 from schema import AgentState
+from models import load_model
+from prompts import sound_design_prompt
 from story_agent import _duration_seconds
 
 
@@ -40,7 +42,7 @@ def _elevenlabs_headers() -> dict[str, str]:
     return {
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
-        "xi-api-key": _env("ELEVENLABS_API_KEY"),
+        "xi-api-key": os.getenv("ELEVENLABS_API_KEY") or _env("elevnlas"),
     }
 
 
@@ -89,7 +91,34 @@ def _sfx_prompt(scene: dict) -> str:
     ).strip()
 
 
-def create_soundfx(state: AgentState) -> dict[str, list[str]]:
+def _parse_json(text: str) -> dict[str, Any]:
+    text = text.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.IGNORECASE | re.MULTILINE).strip()
+    return json.loads(text)
+
+
+def create_sound_design_plan(state: AgentState) -> dict[str, list[dict[str, Any]]]:
+    storyboard = state.get("storyboard")
+    if not storyboard:
+        raise RuntimeError("Sound Design Agent needs storyboard scenes.")
+    model = load_model("soundfx")
+    data = _parse_json(model.invoke(sound_design_prompt(
+        story=state.get("story", ""),
+        storyboard=storyboard,
+        duration_seconds=_duration_seconds(state["duration"]),
+        scene_timings=state.get("scene_timings", []),
+    )).content)
+    plan = data.get("sound_design_plan")
+    if not isinstance(plan, list) or len(plan) != len(storyboard):
+        raise RuntimeError("Sound Design Agent must return one entry per storyboard shot.")
+    expected = [str(scene["shot_id"]) for scene in storyboard]
+    if [str(item.get("shot_id")) for item in plan] != expected:
+        raise RuntimeError("Sound Design Agent changed storyboard shot order.")
+    return {"sound_design_plan": plan}
+
+
+def create_soundfx(state: AgentState) -> dict[str, object]:
     storyboard = state.get("storyboard")
     if not storyboard:
         raise RuntimeError("SoundFX agent needs storyboard scenes.")
@@ -100,12 +129,21 @@ def create_soundfx(state: AgentState) -> dict[str, list[str]]:
     fallback_duration = _duration_seconds(state["duration"]) / max(len(storyboard), 1)
     sfx_files = []
 
-    for scene in storyboard:
+    for index, scene in enumerate(storyboard):
         scene_number = scene["scene_number"]
         sfx_file = out / f"sfx_scene_{scene_number:02}.mp3"
         meta_file = out / f"sfx_scene_{scene_number:02}.json"
-        prompt = _sfx_prompt(scene)
+        design = next((item for item in state.get("sound_design_plan", []) if item.get("shot_id") == scene.get("shot_id")), {})
+        cues = design.get("sound_effects", []) if isinstance(design, dict) else []
+        prompt = "; ".join(str(cue.get("prompt", "")).strip() for cue in cues if isinstance(cue, dict) and cue.get("prompt")) or _sfx_prompt(scene)
         duration_seconds = _timing_duration(state, scene_number) or _scene_duration(scene, fallback_duration)
+        current_transition = scene.get("transition_to_next") or {}
+        previous_transition = storyboard[index - 1].get("transition_to_next") or {} if index else {}
+        if current_transition.get("audio_bridge") == "l_cut":
+            duration_seconds += float(current_transition.get("duration_seconds") or 0.5)
+        if previous_transition.get("audio_bridge") == "j_cut":
+            duration_seconds += float(previous_transition.get("duration_seconds") or 0.5)
+        duration_seconds = min(duration_seconds, 30)
         meta = {"text": prompt, "duration_seconds": duration_seconds, "model_id": model_id}
 
         if not sfx_file.exists() or not meta_file.exists() or json.loads(meta_file.read_text(encoding="utf-8")) != meta:
@@ -123,4 +161,20 @@ def create_soundfx(state: AgentState) -> dict[str, list[str]]:
             meta_file.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
         sfx_files.append(str(sfx_file))
 
-    return {"sfx_files": sfx_files}
+    result: dict[str, object] = {"sfx_files": sfx_files}
+    if os.getenv("MUSIC_ENABLED", "false").lower() in {"1", "true", "yes"}:
+        music_cues = [str(item.get("music_cue", "")).strip() for item in state.get("sound_design_plan", []) if item.get("music_cue")]
+        if music_cues:
+            music_file = out / "music.mp3"
+            music_prompt = "Instrumental background music only, no speech, no sound effects. " + "; ".join(music_cues)
+            music_meta = out / "music.json"
+            meta = {"text": music_prompt, "duration_seconds": _duration_seconds(state["duration"]), "model_id": model_id}
+            if not music_file.exists() or not music_meta.exists() or json.loads(music_meta.read_text(encoding="utf-8")) != meta:
+                music_file.write_bytes(_bytes_request(
+                    f"{ELEVENLABS_SFX_URL}?{parse.urlencode({'output_format': 'mp3_44100_128'})}",
+                    {"text": music_prompt, "duration_seconds": meta["duration_seconds"], "prompt_influence": 0.3, "model_id": model_id},
+                    _elevenlabs_headers(),
+                ))
+                music_meta.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+            result["music_file"] = str(music_file)
+    return result

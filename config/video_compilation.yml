@@ -1,0 +1,19 @@
+version: 1
+
+video_compilation:
+  enabled: true
+  resolutions:
+    "16:9": {width: 1920, height: 1080}
+    "9:16": {width: 1080, height: 1920}
+    "1:1": {width: 1080, height: 1080}
+  fps: 30
+  video_codec: libx264
+  audio_codec: aac
+  pixel_format: yuv420p
+  audio_sample_rate: 48000
+  duration_tolerance_seconds: 0.25
+  timeline_tolerance_seconds: 0.01
+  default_transition: cut
+  dissolve_duration_seconds: 0.25
+  max_retries: 2
+  ffmpeg_timeout_seconds: 300

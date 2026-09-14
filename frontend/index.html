@@ -278,6 +278,10 @@
       padding-right: 14px;
     }
 
+    .duration-field { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+    .duration-field input { width: 82px; padding-inline: 8px; text-align: center; }
+    .duration-field small { color: var(--muted); font-size: 12px; font-weight: 600; }
+
     .field select {
       width: 128px;
     }
@@ -308,6 +312,12 @@
     .send:focus-visible { outline: 3px solid rgba(126, 108, 168, .28); outline-offset: 3px; }
     .send:disabled { opacity: .42; cursor: default; transform: none; box-shadow: none; }
     .send svg { width: 19px; height: 19px; }
+
+    .mic { width: 42px; height: 42px; display: grid; place-items: center; flex: 0 0 auto; margin-left: auto; border: 1px solid rgba(255,255,255,.8); border-radius: 15px; color: var(--ink); background: rgba(255,255,255,.55); cursor: pointer; }
+    .mic.recording { color: #fff; background: #c77991; animation: mic-pulse 1.1s infinite; }
+    .mic:focus-visible { outline: 3px solid rgba(126,108,168,.28); outline-offset: 3px; }
+    .mic svg { width: 19px; height: 19px; }
+    @keyframes mic-pulse { 50% { box-shadow: 0 0 0 7px rgba(199,121,145,.18); } }
 
     .progress-card,
     .review-card,
@@ -385,16 +395,25 @@
       background: rgba(111, 91, 138, .08);
     }
 
-    .visual-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+    .reference-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 20px 0; }
+    .reference-grid figure { margin: 0; }
+    .reference-grid figcaption { margin-bottom: 7px; font-size: 12px; font-weight: 750; }
+    .reference-grid img { width: 100%; aspect-ratio: 1; border-radius: 18px; object-fit: cover; background: rgba(111, 91, 138, .08); }
+
+    .visual-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
     .visual-scene { overflow: hidden; padding: 0; }
-    .visual-scene img { width: 100%; aspect-ratio: 9 / 16; display: block; object-fit: cover; background: rgba(111, 91, 138, .08); }
+    .visual-scene img { width: 100%; aspect-ratio: 16 / 9; display: block; object-fit: contain; background: rgba(111, 91, 138, .08); }
     .visual-scene-copy { padding: 13px; }
     .visual-scene .review-note { margin-top: 10px; }
+    .visual-scene-meta { display: grid; gap: 4px; margin-top: 9px; }
+    .visual-scene-meta p { margin: 0; }
+    @media (max-width: 620px) { .visual-grid { grid-template-columns: 1fr; } }
 
     .artifact-summary { display: grid; gap: 8px; padding: 12px 14px 2px; }
     .artifact-summary details { padding: 10px 12px; border-radius: 13px; background: rgba(255, 255, 255, .55); }
     .artifact-summary summary { cursor: pointer; font-size: 13px; font-weight: 750; }
     .artifact-story { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .bible-copy { display: grid; gap: 7px; margin: 12px 0 18px; color: var(--muted); font-size: 13px; line-height: 1.45; }
     .artifact-summary .storyboard-list { max-height: none; margin: 10px 0 0; }
 
     .eyebrow {
@@ -570,6 +589,7 @@
       .actions { width: 100%; justify-content: flex-start; }
       .review-actions,
       .storyboard-review-actions { justify-content: flex-start; }
+      .reference-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -610,25 +630,12 @@
       </header>
 
       <form class="composer" id="composer">
-        <textarea id="message" aria-label="Describe your video" placeholder="Write something soft and cinematic…" rows="1"></textarea>
+        <textarea id="message" aria-label="Describe your video" placeholder="Describe the story, characters, mood, and visual style…" rows="1"></textarea>
         <div class="composer-controls">
-          <label class="field">
-            <span>Tone</span>
-            <select id="tone">
-              <option>mystical</option>
-              <option>cinematic</option>
-              <option>emotional</option>
-              <option>funny</option>
-              <option>adventurous</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>Duration</span>
-            <select id="duration">
-              <option>30 seconds</option>
-              <option>1 minute</option>
-              <option>2 minutes</option>
-            </select>
+          <label class="field duration-field">
+            <b>Duration</b>
+            <input id="duration" type="number" min="5" max="120" step="1" value="30" required aria-label="Duration in seconds" title="Duration in seconds (5–120)">
+            <small>seconds</small>
           </label>
           <label class="field">
             <span>Language</span>
@@ -639,9 +646,30 @@
             </select>
           </label>
           <label class="field">
-            <span>Characters</span>
-            <input id="characters" value="Raja, Rani">
+            <span>Aspect ratio</span>
+            <select id="aspectRatio" aria-label="Video aspect ratio">
+              <option value="9:16">9:16</option>
+              <option value="16:9">16:9</option>
+              <option value="1:1">1:1</option>
+            </select>
           </label>
+          <label class="field">
+            <span>Output quality</span>
+            <select id="videoQuality" aria-label="Video output quality">
+              <option value="standard">Standard</option>
+              <option value="high">High</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>QA mode</span>
+            <select id="qualityMode" aria-label="Video quality mode" title="Refined mode generates alternate clips">
+              <option value="standard">Standard</option>
+              <option value="refine">Refined</option>
+            </select>
+          </label>
+          <button class="mic" id="micButton" type="button" aria-label="Speak your video idea" title="Speak your video idea">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
           <button class="send" type="submit" aria-label="Create video" disabled>
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -657,6 +685,7 @@
       <p class="review-copy">Approve the draft, edit it directly, or ask for a new version.</p>
       <label class="review-label" for="storyEditor">Story</label>
       <textarea class="story-editor" id="storyEditor" aria-label="Story draft"></textarea>
+      <p class="review-copy" id="storyGenre" aria-live="polite"></p>
       <label class="review-label" for="reviewNote">Regeneration note</label>
       <input class="review-note" id="reviewNote" placeholder="For example: make it warmer and shorter">
       <p class="review-error" id="reviewError" aria-live="polite" hidden></p>
@@ -667,30 +696,51 @@
       </div>
     </section>
 
+    <section class="review-card view" id="referenceReviewView" hidden>
+      <p class="eyebrow">Reference package review</p>
+      <h1>Lock the film's visual identity</h1>
+      <p class="review-copy">Confirm the recurring characters, wardrobe, palette, locations, and lighting before the Director plans any shots.</p>
+      <div class="reference-grid">
+        <figure>
+          <figcaption>Combined character board</figcaption>
+          <img id="characterBoard" alt="Generated combined character reference board">
+        </figure>
+        <figure>
+          <figcaption>Mood board</figcaption>
+          <img id="referenceMoodBoard" alt="Generated cinematic mood board">
+        </figure>
+      </div>
+      <div class="bible-copy" id="productionBible"></div>
+      <label class="review-label" for="referenceNote">Reference feedback</label>
+      <input class="review-note" id="referenceNote" placeholder="For example: keep Mira's red coat and use colder moonlight">
+      <p class="review-error" id="referenceError" aria-live="polite" hidden></p>
+      <div class="storyboard-review-actions reference-review-actions">
+        <button class="action" id="regenerateReference" type="button">Regenerate package</button>
+        <button class="action primary" id="approveReference" type="button">Approve references</button>
+      </div>
+    </section>
+
     <section class="review-card view" id="storyboardReviewView" hidden>
-      <p class="eyebrow">Storyboard review</p>
-      <h1>Review every scene</h1>
-      <p class="review-copy">Images, audio, and video will only be generated after your approval.</p>
+      <p class="eyebrow">Director plan review</p>
+      <h1>Review every cinematic shot</h1>
+      <p class="review-copy">Shots are grouped into story scenes. Add feedback only to shots that should change; timing and all other shots stay fixed.</p>
+      <p class="review-error success" id="countAdjustment" aria-live="polite" hidden></p>
       <div class="storyboard-list" id="storyboardList"></div>
-      <label class="review-label" for="storyboardNote">Regeneration note</label>
-      <input class="review-note" id="storyboardNote" placeholder="For example: use closer shots in scenes 2 and 3">
       <p class="review-error" id="storyboardError" aria-live="polite" hidden></p>
       <div class="storyboard-review-actions">
-        <button class="action" id="regenerateStoryboard" type="button">Regenerate</button>
-        <button class="action primary" id="approveStoryboard" type="button">Approve and produce video</button>
+        <button class="action" id="regenerateStoryboard" type="button">Regenerate selected shots</button>
+        <button class="action primary" id="approveStoryboard" type="button">Approve shot plan</button>
       </div>
     </section>
 
     <section class="review-card view" id="visualStoryboardReviewView" hidden>
       <p class="eyebrow">Visual storyboard review</p>
-      <h1>Confirm the mood and scenes</h1>
-      <p class="review-copy">Approve the visual direction, or add feedback only below the scenes that should be regenerated.</p>
-      <label class="review-label">Mood board</label>
-      <img class="mood-board" id="moodBoard" alt="Generated cinematic mood board">
+      <h1>Confirm every storyboard frame</h1>
+      <p class="review-copy">Check character identity and continuity in every shot. Only frames with feedback will be regenerated.</p>
       <div class="visual-grid" id="visualStoryboardList"></div>
       <p class="review-error" id="visualStoryboardError" aria-live="polite" hidden></p>
       <div class="storyboard-review-actions visual-storyboard-review-actions">
-        <button class="action" id="regenerateVisualScenes" type="button">Regenerate selected scenes</button>
+        <button class="action" id="regenerateVisualScenes" type="button">Regenerate selected shots</button>
         <button class="action primary" id="approveVisualStoryboard" type="button">Approve visuals and produce video</button>
       </div>
     </section>
@@ -727,6 +777,10 @@
           <div class="storyboard-list" id="resultStoryboard"></div>
         </details>
         <details>
+          <summary>Approved character board</summary>
+          <img class="mood-board" id="resultCharacterBoard" alt="Approved combined character board">
+        </details>
+        <details>
           <summary>Approved mood board</summary>
           <img class="mood-board" id="resultMoodBoard" alt="Approved cinematic mood board">
         </details>
@@ -739,6 +793,7 @@
         <div>
           <h2 class="result-title">Your video is ready</h2>
           <p class="result-subtitle">Made from your original idea.</p>
+          <p class="review-error info" id="resultWarnings" hidden></p>
         </div>
         <div class="actions">
           <button class="action" id="tryAgain" type="button">Try something else</button>
@@ -753,9 +808,11 @@
     const composer = document.querySelector('#composer');
     const promptView = document.querySelector('#promptView');
     const reviewView = document.querySelector('#reviewView');
+    const referenceReviewView = document.querySelector('#referenceReviewView');
     const storyboardReviewView = document.querySelector('#storyboardReviewView');
     const visualStoryboardReviewView = document.querySelector('#visualStoryboardReviewView');
     const message = document.querySelector('#message');
+    const micButton = document.querySelector('#micButton');
     const sendButton = document.querySelector('.send');
     const progressView = document.querySelector('#progressView');
     const resultView = document.querySelector('#resultView');
@@ -765,26 +822,58 @@
     const progressFill = document.querySelector('.progress-fill');
     const progressTrack = document.querySelector('.progress-track');
     const statusCopy = document.querySelector('#statusCopy');
-    const tone = document.querySelector('#tone');
     const duration = document.querySelector('#duration');
     const language = document.querySelector('#language');
-    const characters = document.querySelector('#characters');
+    const aspectRatio = document.querySelector('#aspectRatio');
+    const videoQuality = document.querySelector('#videoQuality');
+    const qualityMode = document.querySelector('#qualityMode');
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.onstart = () => micButton.classList.add('recording');
+      recognition.onend = () => micButton.classList.remove('recording');
+      recognition.onerror = () => micButton.classList.remove('recording');
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        message.value = `${message.value.trim()} ${transcript}`.trim();
+        syncComposer();
+      };
+      micButton.addEventListener('click', () => {
+        if (micButton.classList.contains('recording')) return recognition.stop();
+        recognition.lang = ({ Hindi: 'hi-IN', Hinglish: 'hi-IN' })[language.value] || 'en-IN';
+        recognition.start();
+      });
+    } else {
+      micButton.hidden = true;
+    }
     const storyEditor = document.querySelector('#storyEditor');
+    const storyGenre = document.querySelector('#storyGenre');
     const reviewNote = document.querySelector('#reviewNote');
     const reviewError = document.querySelector('#reviewError');
     const reviewButtons = [...document.querySelectorAll('.review-actions button')];
+    const characterBoard = document.querySelector('#characterBoard');
+    const referenceMoodBoard = document.querySelector('#referenceMoodBoard');
+    const referenceNote = document.querySelector('#referenceNote');
+    const productionBible = document.querySelector('#productionBible');
+    const referenceError = document.querySelector('#referenceError');
+    const referenceReviewButtons = [...document.querySelectorAll('.reference-review-actions button')];
     const storyboardList = document.querySelector('#storyboardList');
-    const storyboardNote = document.querySelector('#storyboardNote');
     const storyboardError = document.querySelector('#storyboardError');
+    const countAdjustment = document.querySelector('#countAdjustment');
     const storyboardReviewButtons = [...document.querySelectorAll('#storyboardReviewView .storyboard-review-actions button')];
-    const moodBoard = document.querySelector('#moodBoard');
     const visualStoryboardList = document.querySelector('#visualStoryboardList');
     const visualStoryboardError = document.querySelector('#visualStoryboardError');
     const visualStoryboardReviewButtons = [...document.querySelectorAll('.visual-storyboard-review-actions button')];
     const resultStory = document.querySelector('#resultStory');
     const resultStoryboard = document.querySelector('#resultStoryboard');
+    const resultCharacterBoard = document.querySelector('#resultCharacterBoard');
     const resultMoodBoard = document.querySelector('#resultMoodBoard');
     const resultVisualStoryboard = document.querySelector('#resultVisualStoryboard');
+    const resultVideoQA = document.querySelector('#resultVideoQA');
+    const resultWarnings = document.querySelector('#resultWarnings');
     const stages = [...document.querySelectorAll('.stage')];
     const stageCopy = [
       'Writing your story…',
@@ -795,7 +884,7 @@
     ];
     let generationTimers = [];
     let reviewThreadId = null;
-    let generatedArtifacts = { story: '', storyboard: [], mood_board_url: null, image_urls: [], video_file: null, video_url: null };
+    let generatedArtifacts = { story: '', storyboard: [], character_board_url: null, mood_board_url: null, image_urls: [], warnings: [], video_file: null, video_url: null };
 
     function syncComposer() {
       sendButton.disabled = !message.value.trim();
@@ -818,7 +907,7 @@
     });
 
     function showView(view) {
-      [promptView, reviewView, storyboardReviewView, visualStoryboardReviewView, progressView, resultView].forEach(item => {
+      [promptView, reviewView, referenceReviewView, storyboardReviewView, visualStoryboardReviewView, progressView, resultView].forEach(item => {
         item.hidden = item !== view;
       });
     }
@@ -848,7 +937,7 @@
 
     async function startGeneration() {
       reviewThreadId = null;
-      generatedArtifacts = { story: '', storyboard: [], mood_board_url: null, image_urls: [], video_file: null, video_url: null };
+      generatedArtifacts = { story: '', storyboard: [], character_board_url: null, mood_board_url: null, image_urls: [], warnings: [], video_file: null, video_url: null };
       showProgress();
 
       try {
@@ -857,10 +946,11 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             topic: message.value.trim(),
-            tone: tone.value,
-            duration: duration.value,
+            duration: Number(duration.value),
             language: language.value,
-            characters: characters.value
+            aspect_ratio: aspectRatio.value,
+            video_quality: videoQuality.value,
+            quality_mode: qualityMode.value
           })
         });
         const data = await response.json();
@@ -874,17 +964,24 @@
       }
     }
 
-    function renderStoryboard(scenes, container) {
+    function renderStoryboard(scenes, container, editable = false) {
       const cards = scenes.map((scene, index) => {
         const card = document.createElement('article');
         card.className = 'scene-card';
         const title = document.createElement('h2');
-        title.textContent = `Scene ${scene.scene_number ?? index + 1} · ${scene.start_time || ''}–${scene.end_time || ''}`;
+        const shotId = scene.shot_id || `shot-${String(index + 1).padStart(3, '0')}`;
+        title.textContent = `${scene.scene_id || 'scene-001'} · ${shotId} · ${scene.start_time || ''}–${scene.end_time || ''}`;
         card.append(title);
         [
+          ['Purpose', scene.story_purpose],
+          [`Characters (${(scene.characters_present || []).length})`, (scene.characters_present || []).join(', ') || 'None'],
           ['Visuals', scene.visuals],
           ['Camera', scene.camera],
-          ['Narration', scene.narration]
+          ['Movement', [scene.motion, scene.subject_motion].filter(Boolean).join(' · ')],
+          ['Narration', scene.narration],
+          ['Continuity in', scene.continuity_in],
+          ['Continuity out', scene.continuity_out],
+          ['Transition', scene.transition_to_next ? `${scene.transition_to_next.type} · ${scene.transition_to_next.audio_bridge}` : 'cut']
         ].forEach(([label, value]) => {
           if (!value) return;
           const line = document.createElement('p');
@@ -893,9 +990,37 @@
           line.append(heading, document.createTextNode(value));
           card.append(line);
         });
+        if (editable) {
+          const feedback = document.createElement('input');
+          feedback.className = 'review-note director-feedback';
+          feedback.dataset.shotId = shotId;
+          feedback.setAttribute('aria-label', `Director feedback for ${shotId}`);
+          feedback.placeholder = 'Describe the exact change; leave blank to keep';
+          card.append(feedback);
+        }
         return card;
       });
       container.replaceChildren(...cards);
+    }
+
+    function renderBible(bible) {
+      const characters = Array.isArray(bible?.characters) ? bible.characters : [];
+      const entries = [
+        ['Theme', bible?.theme],
+        ['Visual style', bible?.visual_style],
+        ['Palette', Array.isArray(bible?.palette) ? bible.palette.join(', ') : bible?.palette],
+        ['Lighting', bible?.lighting],
+        ['Camera language', bible?.camera_language],
+        ['Locations', Array.isArray(bible?.locations) ? bible.locations.join(' · ') : bible?.locations],
+        [`Characters (${characters.length})`, characters.map(character => `${character.name}: ${character.appearance}`).join(' · ') || 'None']
+      ];
+      productionBible.replaceChildren(...entries.filter(([, value]) => value).map(([label, value]) => {
+        const line = document.createElement('p');
+        const heading = document.createElement('strong');
+        heading.textContent = `${label}: `;
+        line.append(heading, document.createTextNode(value));
+        return line;
+      }));
     }
 
     function renderVisualStoryboard(scenes, imageUrls, container, editable = false) {
@@ -904,20 +1029,31 @@
         card.className = 'scene-card visual-scene';
         const image = document.createElement('img');
         image.src = imageUrls[index] || '';
-        image.alt = `Generated visual for scene ${scene.scene_number ?? index + 1}`;
+        const shotId = scene.shot_id || `shot-${String(index + 1).padStart(3, '0')}`;
+        image.alt = `Generated visual for ${shotId}`;
         const copy = document.createElement('div');
         copy.className = 'visual-scene-copy';
         const title = document.createElement('h2');
-        title.textContent = `Scene ${scene.scene_number ?? index + 1}`;
+        title.textContent = `${scene.scene_id || 'scene-001'} · ${shotId} · ${scene.start_time || ''}–${scene.end_time || ''}`;
         const description = document.createElement('p');
         description.textContent = scene.visuals || '';
-        copy.append(title, description);
+        const meta = document.createElement('div');
+        meta.className = 'visual-scene-meta';
+        [['Narration', scene.narration], ['Camera', scene.camera], ['Motion', [scene.motion, scene.subject_motion].filter(Boolean).join(' · ')], ['Transition', scene.transition_to_next ? `${scene.transition_to_next.type} · ${scene.transition_to_next.audio_bridge}` : 'cut']].forEach(([label, value]) => {
+          if (!value) return;
+          const line = document.createElement('p');
+          const heading = document.createElement('strong');
+          heading.textContent = `${label}: `;
+          line.append(heading, document.createTextNode(value));
+          meta.append(line);
+        });
+        copy.append(title, description, meta);
         if (editable) {
           const feedback = document.createElement('input');
           feedback.className = 'review-note scene-feedback';
-          feedback.dataset.sceneNumber = scene.scene_number ?? index + 1;
-          feedback.setAttribute('aria-label', `Feedback for scene ${scene.scene_number ?? index + 1}`);
-          feedback.placeholder = 'Leave blank to keep this scene';
+          feedback.dataset.shotId = shotId;
+          feedback.setAttribute('aria-label', `Visual feedback for ${shotId}`);
+          feedback.placeholder = 'Leave blank to keep this shot';
           copy.append(feedback);
         }
         card.append(image, copy);
@@ -928,24 +1064,54 @@
 
     function showGraphResult(data) {
       generatedArtifacts = { ...generatedArtifacts, ...(data.artifacts || {}) };
-      if (data.status === 'review') {
+      if (data.status === 'story_review') {
         generationTimers.forEach(clearTimeout);
         reviewThreadId = data.thread_id;
         storyEditor.value = generatedArtifacts.story || data.story;
+        const structure = (generatedArtifacts.genre_structure || data.artifacts?.genre_structure || []).join(' → ');
+        storyGenre.textContent = structure
+          ? `Genre: ${generatedArtifacts.genre || data.artifacts?.genre || 'general'} · Structure: ${structure}`
+          : '';
         reviewNote.value = '';
-        reviewError.hidden = true;
+        reviewError.className = 'review-error success';
+        reviewError.textContent = data.feedback ? `Applied feedback: ${data.feedback}` : '';
+        reviewError.hidden = !data.feedback;
         showView(reviewView);
         storyEditor.focus();
         return;
       }
-      if (data.status === 'storyboard_review') {
+      if (data.status === 'scene_plan_review' || data.status === 'visual_plan_review' || data.status === 'shot_plan_review') {
+        generationTimers.forEach(clearTimeout);
+        const stage = data.status.replaceAll('_', ' ');
+        statusCopy.textContent = `Automatic retries stopped at ${stage}: ${data.revision_reason || 'manual review is required.'}`;
+        showView(progressView);
+        return;
+      }
+      if (data.status === 'reference_board_review') {
         generationTimers.forEach(clearTimeout);
         reviewThreadId = data.thread_id;
-        renderStoryboard(generatedArtifacts.storyboard, storyboardList);
-        storyboardNote.value = '';
+        characterBoard.src = generatedArtifacts.character_board_url || data.character_board_url;
+        referenceMoodBoard.src = generatedArtifacts.mood_board_url || data.mood_board_url;
+        renderBible(data.production_bible || generatedArtifacts.production_bible);
+        referenceNote.value = '';
+        referenceError.className = 'review-error success';
+        referenceError.textContent = data.feedback ? `Applied feedback: ${data.feedback}` : '';
+        referenceError.hidden = !data.feedback;
+        showView(referenceReviewView);
+        document.querySelector('#approveReference').focus();
+        return;
+      }
+      if (data.status === 'director_plan_review') {
+        generationTimers.forEach(clearTimeout);
+        reviewThreadId = data.thread_id;
+        renderStoryboard(data.director_plan || generatedArtifacts.director_plan || generatedArtifacts.storyboard, storyboardList, true);
+        countAdjustment.textContent = data.count_adjustment || generatedArtifacts.count_adjustment || '';
+        countAdjustment.hidden = !countAdjustment.textContent;
         storyboardError.className = 'review-error success';
-        storyboardError.textContent = data.feedback ? `Applied feedback: ${data.feedback}` : '';
-        storyboardError.hidden = !data.feedback;
+        storyboardError.textContent = data.feedback?.length
+          ? `Updated ${data.feedback.map(item => item.shot_id).join(', ')}.`
+          : '';
+        storyboardError.hidden = !data.feedback?.length;
         showView(storyboardReviewView);
         document.querySelector('#approveStoryboard').focus();
         return;
@@ -953,18 +1119,38 @@
       if (data.status === 'visual_storyboard_review') {
         generationTimers.forEach(clearTimeout);
         reviewThreadId = data.thread_id;
-        moodBoard.src = generatedArtifacts.mood_board_url || data.mood_board_url;
         renderVisualStoryboard(generatedArtifacts.storyboard, generatedArtifacts.image_urls, visualStoryboardList, true);
         visualStoryboardError.className = 'review-error success';
         visualStoryboardError.textContent = data.feedback?.length
-          ? `Regenerated scene${data.feedback.length === 1 ? '' : 's'} ${data.feedback.map(item => item.scene_number).join(', ')}.`
+          ? `Applied ${data.feedback.map(item => `${item.shot_id}: ${item.note}`).join(' · ')}`
           : '';
         visualStoryboardError.hidden = !data.feedback?.length;
         showView(visualStoryboardReviewView);
         document.querySelector('#approveVisualStoryboard').focus();
         return;
       }
-      showResult(data.video_url || generatedArtifacts.video_url || `/output/${data.video_file}`);
+      if (data.status === 'judge_retry_exhausted' || data.status === 'video_validation_failed') {
+        generationTimers.forEach(clearTimeout);
+        showView(progressView);
+        statusCopy.textContent = data.status === 'judge_retry_exhausted'
+          ? 'Video judging failed after the configured retry limit.'
+          : 'Video validation failed after the configured retry limit.';
+        return;
+      }
+      if (data.status === 'pipeline_incomplete') {
+        generationTimers.forEach(clearTimeout);
+        statusCopy.textContent = data.message || 'The pipeline has not produced a final video yet.';
+        showView(progressView);
+        return;
+      }
+      const completedVideo = data.video_url || generatedArtifacts.video_url || (data.video_file ? `/output/${data.video_file}` : null);
+      if (!completedVideo) {
+        generationTimers.forEach(clearTimeout);
+        statusCopy.textContent = data.message || 'The pipeline is still processing; no final video is available yet.';
+        showView(progressView);
+        return;
+      }
+      showResult(completedVideo);
     }
 
     async function submitReview(action) {
@@ -977,10 +1163,20 @@
         }
         body.story = storyEditor.value;
       }
-      if (action === 'regenerate') body.note = reviewNote.value;
+      if (action === 'regenerate') {
+        body.note = reviewNote.value.trim();
+        if (!body.note) {
+          reviewError.className = 'review-error';
+          reviewError.textContent = 'Add a regeneration note describing what must change.';
+          reviewError.hidden = false;
+          return;
+        }
+      }
 
       reviewButtons.forEach(button => { button.disabled = true; });
-      reviewError.hidden = true;
+      reviewError.className = 'review-error info';
+      reviewError.textContent = action === 'regenerate' ? 'Rewriting the story using your feedback…' : '';
+      reviewError.hidden = action !== 'regenerate';
       if (action === 'approve') showProgress(1);
 
       try {
@@ -1002,25 +1198,73 @@
       }
     }
 
-    async function submitStoryboardReview(action) {
+    async function submitReferenceReview(action) {
       const body = { thread_id: reviewThreadId, action };
-      if (action === 'regenerate') body.note = storyboardNote.value;
+      if (action === 'regenerate') {
+        body.note = referenceNote.value.trim();
+        if (!body.note) {
+          referenceError.className = 'review-error';
+          referenceError.textContent = 'Add feedback before regenerating the reference package.';
+          referenceError.hidden = false;
+          return;
+        }
+      }
 
-      storyboardReviewButtons.forEach(button => { button.disabled = true; });
-      storyboardError.className = 'review-error info';
-      storyboardError.textContent = action === 'regenerate' ? 'Regenerating storyboard with your feedback…' : '';
-      storyboardError.hidden = action !== 'regenerate';
-      if (action === 'approve') showProgress(2);
+      referenceReviewButtons.forEach(button => { button.disabled = true; });
+      referenceError.className = 'review-error info';
+      referenceError.textContent = action === 'regenerate' ? 'Regenerating the character and mood boards together…' : '';
+      referenceError.hidden = action !== 'regenerate';
+      if (action === 'approve') showProgress(1);
 
       try {
-        const response = await fetch('/api/review-storyboard', {
+        const response = await fetch('/api/review-reference-board', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
         const data = await response.json();
         const errorMessage = data.error || data.detail?.error || data.detail;
-        if (!response.ok) throw new Error(errorMessage || 'Storyboard review failed.');
+        if (!response.ok) throw new Error(errorMessage || 'Reference package review failed.');
+        showGraphResult(data);
+      } catch (error) {
+        showView(referenceReviewView);
+        referenceError.className = 'review-error';
+        referenceError.textContent = error.message;
+        referenceError.hidden = false;
+      } finally {
+        referenceReviewButtons.forEach(button => { button.disabled = false; });
+      }
+    }
+
+    async function submitStoryboardReview(action) {
+      const body = { thread_id: reviewThreadId, action };
+      if (action === 'regenerate') {
+        body.feedback = [...document.querySelectorAll('.director-feedback')]
+          .map(input => ({ shot_id: input.dataset.shotId, note: input.value.trim() }))
+          .filter(item => item.note);
+        if (!body.feedback.length) {
+          storyboardError.className = 'review-error';
+          storyboardError.textContent = 'Add feedback to at least one shot.';
+          storyboardError.hidden = false;
+          return;
+        }
+      }
+
+      storyboardReviewButtons.forEach(button => { button.disabled = true; });
+      storyboardError.className = 'review-error info';
+      storyboardError.textContent = action === 'regenerate' ? 'Regenerating only the selected Director shots…' : '';
+      storyboardError.hidden = action !== 'regenerate';
+      if (action === 'approve') showProgress(2);
+
+      try {
+        const response = await fetch('/api/review-director-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await response.json();
+        const errorMessage = data.error || data.detail?.error || data.detail;
+        if (!response.ok) throw new Error(errorMessage || 'Director plan review failed.');
         showGraphResult(data);
       } catch (error) {
         showView(storyboardReviewView);
@@ -1036,11 +1280,11 @@
       const body = { thread_id: reviewThreadId, action };
       if (action === 'regenerate') {
         body.feedback = [...document.querySelectorAll('.scene-feedback')]
-          .map(input => ({ scene_number: Number(input.dataset.sceneNumber), note: input.value.trim() }))
+          .map(input => ({ shot_id: input.dataset.shotId, note: input.value.trim() }))
           .filter(item => item.note);
         if (!body.feedback.length) {
           visualStoryboardError.className = 'review-error';
-          visualStoryboardError.textContent = 'Add feedback to at least one scene.';
+          visualStoryboardError.textContent = 'Add feedback to at least one shot.';
           visualStoryboardError.hidden = false;
           return;
         }
@@ -1048,7 +1292,7 @@
 
       visualStoryboardReviewButtons.forEach(button => { button.disabled = true; });
       visualStoryboardError.className = 'review-error info';
-      visualStoryboardError.textContent = action === 'regenerate' ? 'Regenerating only the selected scenes…' : '';
+      visualStoryboardError.textContent = action === 'regenerate' ? 'Regenerating only the selected shots…' : '';
       visualStoryboardError.hidden = action !== 'regenerate';
       if (action === 'approve') showProgress(2);
 
@@ -1082,13 +1326,22 @@
       });
       progressFill.style.width = '100%';
       progressTrack.setAttribute('aria-valuenow', '100');
+      resultVideo.removeAttribute('src');
       resultSource.src = videoPath;
+      resultVideo.src = videoPath;
       exportVideo.href = videoPath;
       resultStory.textContent = generatedArtifacts.story;
       renderStoryboard(generatedArtifacts.storyboard, resultStoryboard);
+      resultCharacterBoard.src = generatedArtifacts.character_board_url || '';
       resultMoodBoard.src = generatedArtifacts.mood_board_url || '';
       renderVisualStoryboard(generatedArtifacts.storyboard, generatedArtifacts.image_urls, resultVisualStoryboard);
+      resultWarnings.textContent = (generatedArtifacts.warnings || []).join(' ');
+      resultWarnings.hidden = !resultWarnings.textContent;
       resultVideo.load();
+      resultVideo.onerror = () => {
+        resultWarnings.textContent = `Video could not be loaded from ${videoPath}`;
+        resultWarnings.hidden = false;
+      };
       showView(resultView);
       resultVideo.play().catch(() => {});
     }
@@ -1108,6 +1361,8 @@
     document.querySelector('#approveStory').addEventListener('click', () => submitReview('approve'));
     document.querySelector('#saveStory').addEventListener('click', () => submitReview('edit'));
     document.querySelector('#regenerateStory').addEventListener('click', () => submitReview('regenerate'));
+    document.querySelector('#approveReference').addEventListener('click', () => submitReferenceReview('approve'));
+    document.querySelector('#regenerateReference').addEventListener('click', () => submitReferenceReview('regenerate'));
     document.querySelector('#approveStoryboard').addEventListener('click', () => submitStoryboardReview('approve'));
     document.querySelector('#regenerateStoryboard').addEventListener('click', () => submitStoryboardReview('regenerate'));
     document.querySelector('#approveVisualStoryboard').addEventListener('click', () => submitVisualStoryboardReview('approve'));

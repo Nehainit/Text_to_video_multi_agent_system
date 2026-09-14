@@ -1,0 +1,10 @@
+version: 1
+
+video_validation:
+  enabled: true
+  duration_tolerance_seconds: 0.5
+  aspect_ratio_tolerance: 0.02
+  require_audio: false
+  max_retries: 2
+  probe_timeout_seconds: 30
+  decode_timeout_seconds: 120

@@ -24,6 +24,9 @@ def test_archives_manifest_and_files_to_minio(tmp_path):
     image = tmp_path / "images" / "scene_01_v001.png"
     image.parent.mkdir()
     image.write_bytes(b"image")
+    candidate = tmp_path / "scene_videos" / "shot-001-c1.mp4"
+    candidate.parent.mkdir()
+    candidate.write_bytes(b"video")
     fake = FakeMinio()
     original_client = artifact_store._client
     original_bucket = os.environ.get("MINIO_BUCKET")
@@ -37,6 +40,8 @@ def test_archives_manifest_and_files_to_minio(tmp_path):
                 "story": "Once upon a time.",
                 "storyboard": [{"scene_number": 1}],
                 "image_files": [str(image)],
+                "quality_mode": "refine",
+                "video_candidates": [{"candidate_id": "shot-001-c1", "file": str(candidate)}],
             },
             "thread-1",
             "visual-storyboard-review",
@@ -50,10 +55,12 @@ def test_archives_manifest_and_files_to_minio(tmp_path):
 
     manifest = next((tmp_path / "artifact_history").glob("*-visual-storyboard-review.json"))
     assert json.loads(manifest.read_text())["story"] == "Once upon a time."
+    assert json.loads(manifest.read_text())["quality_mode"] == "refine"
     assert fake.created == ["test-artifacts"]
     assert storage["backend"] == "minio"
     assert storage["objects"] == [
         "thread-1/images/scene_01_v001.png",
+        "thread-1/scene_videos/shot-001-c1.mp4",
         f"thread-1/artifact_history/{manifest.name}",
     ]
 

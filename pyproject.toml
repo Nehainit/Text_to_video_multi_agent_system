@@ -3,7 +3,15 @@ name = "magnific-video-automation-agent"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
+    "fastapi",
+    "google-genai",
     "huggingface-hub",
+    "langchain-ollama",
+    "langgraph",
+    "langgraph-checkpoint-sqlite",
     "minio",
+    "pillow",
     "python-dotenv",
+    "PyYAML",
+    "uvicorn",
 ]

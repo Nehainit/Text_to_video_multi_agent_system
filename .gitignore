@@ -2,8 +2,13 @@
 .venv/
 __pycache__/
 *.py[cod]
+*.sqlite
+*.sqlite-*
 .pytest_cache/
 .DS_Store
 outputs/
 /raja-and-*/
 frontend/*.mp4
+.claim-flow-work/
+Untitled.ipynb
+notes.txt

@@ -1,0 +1,7 @@
+version: 1
+
+edit_timeline:
+  enabled: true
+  clip_shortfall_tolerance_seconds: 0.15
+  max_retries_per_shot: 2
+  default_transition: cut

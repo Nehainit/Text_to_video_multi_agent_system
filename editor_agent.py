@@ -4,6 +4,9 @@ from pathlib import Path
 
 from schema import AgentState
 
+FFMPEG_TIMEOUT_SECONDS = 300
+RESOLUTIONS = {"16:9": (1920, 1080), "9:16": (1080, 1920), "1:1": (1080, 1080)}
+
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60] or "video"
@@ -30,7 +33,6 @@ def _validate_counts(state: AgentState, timings: list[dict[str, float | int]]) -
     counts = {
         "storyboard": len(state["storyboard"]),
         "image_files": len(state["image_files"]),
-        "sfx_files": len(state["sfx_files"]),
         "scene_timings": len(timings),
     }
     if state.get("scene_video_files"):
@@ -40,6 +42,15 @@ def _validate_counts(state: AgentState, timings: list[dict[str, float | int]]) -
 
 
 def _scene_timings(state: AgentState) -> list[dict[str, float | int]]:
+    if state.get("edit_timeline"):
+        return [
+            {
+                "scene_number": index,
+                "start_seconds": item["timeline_start"],
+                "end_seconds": item["timeline_end"],
+            }
+            for index, item in enumerate(state["edit_timeline"], start=1)
+        ]
     timings = state.get("scene_timings")
     if timings:
         return timings
@@ -53,21 +64,27 @@ def _scene_timings(state: AgentState) -> list[dict[str, float | int]]:
     ]
 
 
-def _motion_filter(motion: str, duration: float) -> str:
+def _resolution(state: AgentState) -> tuple[int, int]:
+    if state.get("width") and state.get("height"):
+        return int(state["width"]), int(state["height"])
+    return RESOLUTIONS.get(str(state.get("aspect_ratio", "9:16")), RESOLUTIONS["9:16"])
+
+
+def _motion_filter(motion: str, duration: float, width: int = 1080, height: int = 1920) -> str:
     frames = max(1, int(round(duration * 30)))
-    base = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+    base = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
     if motion == "zoom_in":
-        return f"{base},zoompan=z='min(zoom+0.002,1.18)':d={frames}:s=1080x1920:fps=30,format=yuv420p"
+        return f"{base},zoompan=z='min(zoom+0.0006,1.05)':d={frames}:s={width}x{height}:fps=30,format=yuv420p"
     if motion == "zoom_out":
-        return f"{base},zoompan=z='if(eq(on,0),1.18,max(zoom-0.002,1.0))':d={frames}:s=1080x1920:fps=30,format=yuv420p"
+        return f"{base},zoompan=z='if(eq(on,0),1.05,max(zoom-0.0006,1.0))':d={frames}:s={width}x{height}:fps=30,format=yuv420p"
     if motion == "pan_left":
-        return f"{base},zoompan=z=1.12:x='iw-(iw/zoom)-on*(iw-iw/zoom)/{frames}':y='(ih-ih/zoom)/2':d={frames}:s=1080x1920:fps=30,format=yuv420p"
+        return f"{base},zoompan=z=1.05:x='iw-(iw/zoom)-on*(iw-iw/zoom)/{frames}':y='(ih-ih/zoom)/2':d={frames}:s={width}x{height}:fps=30,format=yuv420p"
     if motion == "pan_right":
-        return f"{base},zoompan=z=1.12:x='on*(iw-iw/zoom)/{frames}':y='(ih-ih/zoom)/2':d={frames}:s=1080x1920:fps=30,format=yuv420p"
+        return f"{base},zoompan=z=1.05:x='on*(iw-iw/zoom)/{frames}':y='(ih-ih/zoom)/2':d={frames}:s={width}x{height}:fps=30,format=yuv420p"
     if motion == "tilt_up":
-        return f"{base},zoompan=z=1.12:x='(iw-iw/zoom)/2':y='ih-(ih/zoom)-on*(ih-ih/zoom)/{frames}':d={frames}:s=1080x1920:fps=30,format=yuv420p"
+        return f"{base},zoompan=z=1.05:x='(iw-iw/zoom)/2':y='ih-(ih/zoom)-on*(ih-ih/zoom)/{frames}':d={frames}:s={width}x{height}:fps=30,format=yuv420p"
     if motion == "tilt_down":
-        return f"{base},zoompan=z=1.12:x='(iw-iw/zoom)/2':y='on*(ih-ih/zoom)/{frames}':d={frames}:s=1080x1920:fps=30,format=yuv420p"
+        return f"{base},zoompan=z=1.05:x='(iw-iw/zoom)/2':y='on*(ih-ih/zoom)/{frames}':d={frames}:s={width}x{height}:fps=30,format=yuv420p"
     return f"{base},setsar=1,format=yuv420p"
 
 
@@ -101,37 +118,50 @@ def _wrapped_text(draw, text: str, font, max_width: int) -> list[str]:
     return lines or [text]
 
 
-def _caption_image(text: str, path: Path) -> None:
+def _caption_image(text: str, path: Path, width: int, height: int) -> None:
     from PIL import Image, ImageDraw
 
-    image = Image.new("RGBA", (1080, 1920), (0, 0, 0, 0))
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
-    font = _font(58)
-    lines = _wrapped_text(draw, text, font, 920)
-    line_height = 74
-    box_height = line_height * len(lines) + 56
-    y = 1620 - box_height
-    draw.rounded_rectangle((54, y, 1026, y + box_height), radius=28, fill=(0, 0, 0, 170))
+    scale = width / 1080
+    font = _font(max(24, int(58 * scale)))
+    margin = max(24, int(54 * scale))
+    padding = max(18, int(28 * scale))
+    line_height = max(32, int(74 * scale))
+    lines = _wrapped_text(draw, text, font, width - 2 * (margin + padding))
+    box_height = line_height * len(lines) + 2 * padding
+    y = int(height * 0.88) - box_height
+    draw.rounded_rectangle((margin, y, width - margin, y + box_height), radius=padding, fill=(0, 0, 0, 170))
     for index, line in enumerate(lines):
         bbox = draw.textbbox((0, 0), line, font=font, stroke_width=2)
-        x = (1080 - (bbox[2] - bbox[0])) / 2
-        draw.text((x, y + 28 + index * line_height), line, font=font, fill="white", stroke_width=2, stroke_fill="black")
+        x = (width - (bbox[2] - bbox[0])) / 2
+        draw.text((x, y + padding + index * line_height), line, font=font, fill="white", stroke_width=2, stroke_fill="black")
     image.save(path)
 
 
 def _caption_overlays(state: AgentState, out: Path) -> list[tuple[Path, float, float]]:
     overlays = []
+    width, height = _resolution(state)
     captions_out = out / "captions"
     captions_out.mkdir(parents=True, exist_ok=True)
     for index, subtitle in enumerate(state.get("subtitles", []), start=1):
         caption_file = captions_out / f"caption_{index:03}.png"
-        _caption_image(str(subtitle["text"]), caption_file)
+        _caption_image(str(subtitle["text"]), caption_file, width, height)
         overlays.append((caption_file, float(subtitle["start_seconds"]), float(subtitle["end_seconds"])))
     return overlays
 
 
 def _run_ffmpeg(command: list[str]) -> None:
-    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    try:
+        result = subprocess.run(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=FFMPEG_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(f"FFmpeg failed or timed out: {exc}") from exc
     if result.returncode:
         raise RuntimeError(result.stderr)
 
@@ -141,6 +171,8 @@ def _clip(
     duration: float,
     motion: str,
     clip_file: Path,
+    width: int = 1080,
+    height: int = 1920,
 ) -> None:
     _run_ffmpeg(
         [
@@ -153,7 +185,7 @@ def _clip(
             "-t",
             str(duration),
             "-vf",
-            _motion_filter(motion, duration),
+            _motion_filter(motion, duration, width, height),
             "-an",
             "-r",
             "30",
@@ -162,19 +194,19 @@ def _clip(
     )
 
 
-def _video_clip(video_file: str, duration: float, clip_file: Path) -> None:
+def _video_clip(video_file: str, duration: float, clip_file: Path, source_in: float = 0.0, width: int = 1080, height: int = 1920) -> None:
     _run_ffmpeg(
         [
             "ffmpeg",
             "-y",
-            "-stream_loop",
-            "-1",
+            "-ss",
+            str(source_in),
             "-i",
             video_file,
             "-t",
             str(duration),
             "-vf",
-            "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p",
+            f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},fps=30,format=yuv420p",
             "-an",
             "-r",
             "30",
@@ -183,8 +215,53 @@ def _video_clip(video_file: str, duration: float, clip_file: Path) -> None:
     )
 
 
+def _transition(scene: dict) -> tuple[str, float]:
+    value = scene.get("transition_to_next") or {}
+    kind = str(value.get("type", "cut"))
+    seconds = float(value.get("duration_seconds", 0)) if kind == "dissolve" else 0.0
+    return kind, seconds
+
+
+def _join_clips(clips: list[Path], scenes: list[dict], durations: list[float], output: Path) -> None:
+    inputs = [part for clip in clips for part in ("-i", str(clip))]
+    filters = [f"[{index}:v]setpts=PTS-STARTPTS[v{index}]" for index in range(len(clips))]
+    current = "[v0]"
+    offset = durations[0]
+    for index in range(1, len(clips)):
+        kind, transition_seconds = _transition(scenes[index - 1])
+        target = f"[joined{index}]"
+        if kind == "dissolve" and transition_seconds:
+            filters.append(
+                f"{current}[v{index}]xfade=transition=fade:duration={transition_seconds}:offset={offset}{target}"
+            )
+        else:
+            filters.append(f"{current}[v{index}]concat=n=2:v=1:a=0{target}")
+        current = target
+        offset += durations[index]
+    _run_ffmpeg(
+        [
+            "ffmpeg",
+            "-y",
+            *inputs,
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            current,
+            "-t",
+            str(sum(durations)),
+            "-r",
+            "30",
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            str(output),
+        ]
+    )
+
+
 def edit_video(state: AgentState) -> dict[str, str]:
-    for key in ("storyboard", "image_files", "narration_file", "sfx_files", "subtitles"):
+    for key in ("storyboard", "image_files", "narration_file", "subtitles"):
         if not state.get(key):
             raise RuntimeError(f"Editor agent needs {key}.")
 
@@ -192,45 +269,73 @@ def edit_video(state: AgentState) -> dict[str, str]:
     out.mkdir(parents=True, exist_ok=True)
     clips_out = out / "clips"
     clips_out.mkdir(parents=True, exist_ok=True)
-    concat_file = out / "images.txt"
+    picture_track = out / "picture_track.mp4"
     mixed_audio_file = out / "mixed_audio.mp3"
     video_file = out / "final_reel.mp4"
 
     timings = _scene_timings(state)
     _validate_counts(state, timings)
     total_seconds = max(float(timing["end_seconds"]) for timing in timings)
-    lines = []
-    cursor = 0.0
-    previous_image = None
-    clip_index = 1
+    width, height = _resolution(state)
+    approved_rough_cut = Path(state["rough_cut_file"]) if state.get("combined_video_judge_approved") and state.get("rough_cut_file") else None
+    clips = []
+    durations = []
     scene_video_files = state.get("scene_video_files") or []
-    for index, (scene, image_file, timing) in enumerate(zip(state["storyboard"], state["image_files"], timings)):
-        start = float(timing["start_seconds"])
-        end = float(timing["end_seconds"])
-        if start > cursor:
-            hold_file = clips_out / f"clip_{clip_index:03}_hold.mp4"
-            _clip(previous_image or image_file, start - cursor, "static", hold_file)
-            lines.append(f"file '{hold_file.resolve()}'")
-            clip_index += 1
-        duration = max(0.1, end - start)
-        clip_file = clips_out / f"scene_{int(scene['scene_number']):02}.mp4"
-        if scene_video_files:
-            _video_clip(scene_video_files[index], duration, clip_file)
-        else:
-            _clip(image_file, duration, str(scene.get("motion", "static")), clip_file)
-        lines.append(f"file '{clip_file.resolve()}'")
-        cursor = end
-        previous_image = image_file
-    concat_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    timeline = state.get("edit_timeline") or []
+    if approved_rough_cut and approved_rough_cut.is_file():
+        picture_track = approved_rough_cut
+    else:
+        for index, (scene, image_file, timing) in enumerate(zip(state["storyboard"], state["image_files"], timings)):
+            start = float(timing["start_seconds"])
+            end = float(timing["end_seconds"])
+            duration = max(0.1, end - start)
+            if index < len(timeline):
+                scene = {
+                    **scene,
+                    "transition_to_next": {
+                        "type": timeline[index].get("transition_out", "cut"),
+                        "duration_seconds": 0,
+                    },
+                }
+            _, transition_seconds = _transition(scene)
+            render_duration = duration + transition_seconds
+            clip_file = clips_out / f"{scene.get('shot_id', f'shot-{index + 1:03}')}.mp4"
+            if index < len(scene_video_files) and scene_video_files[index]:
+                source_in = float(timeline[index].get("source_in", 0)) if index < len(timeline) else 0.0
+                _video_clip(scene_video_files[index], render_duration, clip_file, source_in, width, height)
+            else:
+                _clip(image_file, render_duration, str(scene.get("motion", "static")), clip_file, width, height)
+            clips.append(clip_file)
+            durations.append(duration)
+        edit_scenes = [
+            {
+                **scene,
+                "transition_to_next": {
+                    "type": timeline[index].get("transition_out", "cut"),
+                    "duration_seconds": 0,
+                },
+            } if index < len(timeline) else scene
+            for index, scene in enumerate(state["storyboard"])
+        ]
+        _join_clips(clips, edit_scenes, durations, picture_track)
 
     mix_inputs = ["-i", state["narration_file"]]
     filter_parts = []
     labels = ["[0:a]"]
-    for index, (sfx_file, timing) in enumerate(zip(state["sfx_files"], timings), start=1):
+    audio_index = 1
+    for scene, sfx_file, timing in zip(state["storyboard"], state.get("sfx_files") or [None] * len(timings), timings):
+        if not sfx_file:
+            continue
         start_ms = int(float(timing["start_seconds"]) * 1000)
         mix_inputs.extend(["-i", sfx_file])
-        filter_parts.append(f"[{index}:a]adelay={start_ms}|{start_ms},volume=0.35[sfx{index}]")
-        labels.append(f"[sfx{index}]")
+        filter_parts.append(f"[{audio_index}:a]adelay={start_ms}|{start_ms},volume=0.35[sfx{audio_index}]")
+        labels.append(f"[sfx{audio_index}]")
+        audio_index += 1
+    if state.get("music_file"):
+        mix_inputs.extend(["-i", state["music_file"]])
+        music_index = len(mix_inputs) // 2 - 1
+        filter_parts.append(f"[{music_index}:a]volume=0.16[music]")
+        labels.append("[music]")
     filter_parts.append(f"{''.join(labels)}amix=inputs={len(labels)}:duration=longest:dropout_transition=0[a]")
 
     _run_ffmpeg(
@@ -240,12 +345,8 @@ def edit_video(state: AgentState) -> dict[str, str]:
     final_command = [
         "ffmpeg",
         "-y",
-        "-f",
-        "concat",
-        "-safe",
-        "0",
         "-i",
-        str(concat_file),
+        str(picture_track),
         "-i",
         str(mixed_audio_file),
     ]

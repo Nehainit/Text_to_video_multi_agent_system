@@ -1,3 +1,11 @@
+fastapi
+google-genai
 huggingface-hub
+langchain-ollama
+langgraph
+langgraph-checkpoint-sqlite
 minio
+pillow
 python-dotenv
+PyYAML
+uvicorn
