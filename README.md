@@ -8,6 +8,8 @@ A LangGraph pipeline that turns a story prompt into a narrated short video. It p
 
 ## Demo
 
+### Version 1 — narrated storyboard
+
 <p align="center">
   <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4">
     <img src="demo/robot-story-poster.jpg" width="280" alt="Robot story video preview">
@@ -16,13 +18,37 @@ A LangGraph pipeline that turns a story prompt into a narrated short video. It p
   <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4"><strong>▶ Watch the 17-second 1080×1920 demo</strong></a>
 </p>
 
+### Version 2 — Magnific/Kling animated shots
+
+<p align="center">
+  <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/version-2-raja-rani.mp4">
+    <img src="demo/version-2-raja-rani-poster.jpg" width="280" alt="Raja and Rani animated story preview">
+  </a>
+  <br>
+  <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/version-2-raja-rani.mp4"><strong>▶ Watch the 30-second animated Raja–Rani example</strong></a>
+</p>
+
+This run uses three real `kling-v2-6-pro` image-to-video clips with narration and FFmpeg assembly.
+
+### Version 3 — resilient multi-agent pipeline
+
+<p align="center">
+  <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/version-3-ganesha.mp4">
+    <img src="demo/version-3-ganesha-poster.jpg" width="280" alt="Ganesha story final reel preview">
+  </a>
+  <br>
+  <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/version-3-ganesha.mp4"><strong>▶ Watch the 25-second validated Ganesha example</strong></a>
+</p>
+
+This run demonstrates the complete Version 3 planning, visual QA, narration, timeline, subtitle, and final-edit path. Magnific failed during this run, so the final reel transparently demonstrates the FFmpeg motion fallback rather than AI character animation.
+
 ## Pipeline versions
 
 | Version | Video workflow | Status |
 |---|---|---|
 | **Version 1 — narrated storyboard** | Generates still story images, narration, and an FFmpeg-assembled reel. | Baseline represented by the robot demo above. |
-| **Version 2 — animated shots** | Adds per-shot motion plans and Magnific/Kling image-to-video generation, with FFmpeg camera movement as a continuity fallback when animation is unavailable. | Functional; provider output depends on successful external generation. |
-| **Version 3 — resilient multi-agent pipeline** | Adds deterministic validators, visual QA, HITL checkpoints, targeted per-shot retries, concurrent media workers, checkpoint/resume, and MinIO artifact publishing. | **Current — Active Development.** |
+| **Version 2 — animated shots** | Adds per-shot motion plans and Magnific/Kling image-to-video generation, with FFmpeg camera movement as a continuity fallback when animation is unavailable. | [Raja–Rani animated example](demo/version-2-raja-rani.mp4). |
+| **Version 3 — resilient multi-agent pipeline** | Adds deterministic validators, visual QA, HITL checkpoints, targeted per-shot retries, concurrent media workers, checkpoint/resume, and MinIO artifact publishing. | **Current — Active Development.** [Ganesha fallback example](demo/version-3-ganesha.mp4). |
 
 ## Engineering snapshot
 
