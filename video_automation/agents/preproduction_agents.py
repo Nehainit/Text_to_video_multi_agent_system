@@ -24,8 +24,26 @@ from video_automation.agents.story_agent import _duration_seconds, _parse_json
 
 
 logger = logging.getLogger(__name__)
-PLANNING_CONTRACT_VERSION = 3
+PLANNING_CONTRACT_VERSION = 5
 
+NARRATION_OUTPUT_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["narration_segments", "needs_story_revision", "revision_reason"],
+    "properties": {
+        "narration_segments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["text"],
+                "properties": {"text": {"type": "string", "minLength": 1}},
+            },
+        },
+        "needs_story_revision": {"type": "boolean"},
+        "revision_reason": {"type": ["string", "null"]},
+    },
+}
 VISUAL_CREATIVE_FIELDS = {
     "visual_action", "visual_focus", "emotional_intent", "continuity_in", "continuity_out", "story_purpose",
 }
@@ -73,11 +91,11 @@ SCENE_PLAN_OUTPUT_SCHEMA = {
                 "type": "object",
                 "additionalProperties": False,
                 "required": [
-                    "segment_count", "location", "characters_present", "scene_goal",
+                    "source_segment_number", "location", "characters_present", "scene_goal",
                     "visible_actions", "emotion", "story_purpose",
                 ],
                 "properties": {
-                    "segment_count": {"type": "integer", "minimum": 1},
+                    "source_segment_number": {"type": "integer", "minimum": 1},
                     "location": {"type": "string", "minLength": 1},
                     "characters_present": {"type": "array", "items": {"type": "string", "minLength": 1}},
                     "scene_goal": {"type": "string", "minLength": 1},
@@ -177,6 +195,8 @@ def _partition_matches(parts: list[dict], source: str) -> bool:
 
 
 def _review_narration_traceability(model, story: dict, segments: list[dict], evaluations: list[dict]) -> list[str]:
+    if hasattr(model, "format"):
+        model.format = "json"
     response, evaluation = invoke_with_evaluation(
         model,
         [
@@ -234,6 +254,8 @@ Revision requirement: {feedback or 'none'}"""
     best = None
     evaluations = list(state.get("llm_evaluations", []))
     for _ in range(3):
+        if hasattr(model, "format"):
+            model.format = NARRATION_OUTPUT_SCHEMA
         response, evaluation = invoke_with_evaluation(
             model,
             [
@@ -332,6 +354,30 @@ Revision requirement: {feedback or 'none'}"""
             "warnings": [*state.get("warnings", []), f"Narration review warning: {error}"],
             "llm_evaluations": evaluations,
         }
+    fallback_texts = [
+        str(beat.get("description", "")).strip()
+        for beat in story.get("structure", [])
+    ]
+    if fallback_texts and all(fallback_texts):
+        segments = [
+            {"segment_id": f"segment-{index:03}", "parent_beat_ids": [beat["beat_id"]], "text": text}
+            for index, (beat, text) in enumerate(zip(story["structure"], fallback_texts), start=1)
+        ]
+        narration = " ".join(fallback_texts)
+        return {
+            "narration_script": narration,
+            "narration_segments": segments,
+            "estimated_narration_seconds": round(len(_narration_words(narration)) / 1.5, 1),
+            "needs_story_revision": False,
+            "story_revision_reason": None,
+            "narration_feedback": "",
+            "director_feedback": [],
+            "warnings": [
+                *state.get("warnings", []),
+                f"Narration model returned invalid JSON; using approved story beats as narration. Last error: {error}",
+            ],
+            "llm_evaluations": evaluations,
+        }
     raise RuntimeError(error or "Narration Agent returned no script.")
 
 
@@ -347,6 +393,27 @@ def _segment_timing(state: AgentState) -> dict[str, dict]:
     return result
 
 
+def _scene_time_bounds(source_groups: list[list[str]], timing: dict[str, dict]) -> list[tuple[float, float]]:
+    totals = {}
+    for source_ids in source_groups:
+        if len(source_ids) == 1:
+            totals[source_ids[0]] = totals.get(source_ids[0], 0) + 1
+    used, bounds = {}, []
+    for source_ids in source_groups:
+        start = float(timing[source_ids[0]]["start_seconds"])
+        end = float(timing[source_ids[-1]]["end_seconds"])
+        if len(source_ids) == 1 and totals[source_ids[0]] > 1:
+            segment_id = source_ids[0]
+            position = used.get(segment_id, 0)
+            width = (end - start) / totals[segment_id]
+            piece_end = end if position + 1 == totals[segment_id] else start + width * (position + 1)
+            bounds.append((start + width * position, piece_end))
+            used[segment_id] = position + 1
+        else:
+            bounds.append((start, end))
+    return bounds
+
+
 def _complete_scene_plan(data: object, state: AgentState) -> dict:
     data = _plan_payload(data, "scenes", "Scene plan")
     if data["needs_revision"] and data["scenes"]:
@@ -359,32 +426,43 @@ def _complete_scene_plan(data: object, state: AgentState) -> dict:
     timing = _segment_timing(state)
     if not isinstance(raw_scenes, list) or not raw_scenes:
         raise RuntimeError("Scene Planning Agent returned no scenes.")
-    if len(raw_scenes) > len(segment_ids):
-        raise RuntimeError("Scene count cannot exceed narration segment count.")
+    uses_segment_numbers = any(isinstance(scene, dict) and "source_segment_number" in scene for scene in raw_scenes)
+    source_groups = []
+    if uses_segment_numbers:
+        for scene in raw_scenes:
+            number = scene.get("source_segment_number") if isinstance(scene, dict) else None
+            if type(number) is not int or not 1 <= number <= len(segment_ids):
+                raise RuntimeError("Every scene needs a valid 1-based source_segment_number.")
+            source_groups.append([segment_ids[number - 1]])
+    else:  # Accept segment_count responses produced by the previous prompt during migration.
+        if len(raw_scenes) > len(segment_ids):
+            raise RuntimeError("Scene count cannot exceed narration segment count.")
+        offset = 0
+        for index, scene in enumerate(raw_scenes, start=1):
+            count = scene.get("segment_count") if isinstance(scene, dict) else None
+            if count is None:
+                source_ids = scene.get("source_segment_ids") if isinstance(scene, dict) else None
+                count = len(source_ids) if isinstance(source_ids, list) else 1
+            if type(count) is not int or count < 1:
+                raise RuntimeError("Every scene needs a positive integer segment_count.")
+            scenes_left = len(raw_scenes) - index
+            count = len(segment_ids) - offset if not scenes_left else min(count, len(segment_ids) - offset - scenes_left)
+            source_groups.append(segment_ids[offset:offset + count])
+            offset += count
+    try:
+        time_bounds = _scene_time_bounds(source_groups, timing)
+    except (KeyError, TypeError, ValueError, IndexError) as exc:
+        raise RuntimeError("Scene Planning Agent needs every narration segment's actual TTS timing.") from exc
 
-    completed, offset, location_ids = [], 0, {}
+    completed, location_ids = [], {}
     creative_fields = {
         "characters_present", "scene_goal", "visible_actions", "emotion", "story_purpose",
     }
-    for index, scene in enumerate(raw_scenes, start=1):
+    for index, (scene, source_ids, (start, end)) in enumerate(zip(raw_scenes, source_groups, time_bounds), start=1):
         if not isinstance(scene, dict) or not creative_fields <= set(scene):
-            raise RuntimeError("Every scene needs segment_count and all creative scene fields.")
-        count = scene.get("segment_count")
-        if count is None:  # Accept responses produced by the previous prompt during migration.
-            source_ids = scene.get("source_segment_ids")
-            count = len(source_ids) if isinstance(source_ids, list) else 1
-        if type(count) is not int or count < 1:
-            raise RuntimeError("Every scene needs a positive integer segment_count.")
-        scenes_left = len(raw_scenes) - index
-        count = len(segment_ids) - offset if not scenes_left else min(count, len(segment_ids) - offset - scenes_left)
-        source_ids = segment_ids[offset:offset + count]
+            raise RuntimeError("Every scene needs source segment mapping and all creative scene fields.")
         if not source_ids:
             raise RuntimeError("Every scene must cover at least one narration segment.")
-        try:
-            start = float(timing[source_ids[0]]["start_seconds"])
-            end = float(timing[source_ids[-1]]["end_seconds"])
-        except (KeyError, TypeError, ValueError) as exc:
-            raise RuntimeError("Scene Planning Agent needs every narration segment's actual TTS timing.") from exc
         location = str(scene.get("location") or scene.get("location_description") or scene.get("location_id") or "").strip()
         if not location:
             raise RuntimeError("Every scene needs a nonempty location description.")
@@ -399,7 +477,6 @@ def _complete_scene_plan(data: object, state: AgentState) -> dict:
             "location_description": location,
             **{field: scene[field] for field in creative_fields},
         })
-        offset += count
     return {**data, "scenes": completed}
 
 
@@ -431,22 +508,26 @@ def _validate_scene_plan(data: object, state: AgentState) -> tuple[list[dict], l
     }
     if not isinstance(scenes, list) or not scenes:
         raise RuntimeError("Scene Planning Agent returned no scenes.")
+    try:
+        expected_bounds = _scene_time_bounds([scene["source_segment_ids"] for scene in scenes], timing)
+    except (KeyError, TypeError, ValueError, IndexError) as exc:
+        raise RuntimeError("Every scene needs valid supplied narration timing.") from exc
     normalized, traced = [], []
     tolerance = float(config["timing"]["timing_tolerance_seconds"])
     previous_end = 0.0
     forbidden_camera_terms = ("camera", "close-up", "wide shot", "lens", "zoom", "pan ", "dolly", "tracking shot")
-    for index, scene in enumerate(scenes, start=1):
+    for index, (scene, (expected_start, expected_end)) in enumerate(zip(scenes, expected_bounds), start=1):
         if not isinstance(scene, dict) or set(scene) != fields or scene["scene_id"] != f"scene-{index:03}":
             raise RuntimeError("Every scene must match the required schema and use consecutive scene IDs.")
         source_ids = scene["source_segment_ids"]
         if not isinstance(source_ids, list) or not source_ids:
             raise RuntimeError("Every scene needs source_segment_ids.")
+        if config["scene_boundaries"]["force_one_segment_per_scene"] and len(source_ids) != 1:
+            raise RuntimeError("Every scene must map to exactly one narration segment.")
         if not config["traceability"]["allow_unknown_segment_ids"] and any(item not in timing for item in source_ids):
             raise RuntimeError("Scene plan references an unknown narration segment.")
         traced.extend(source_ids)
         try:
-            expected_start = float(timing[source_ids[0]]["start_seconds"])
-            expected_end = float(timing[source_ids[-1]]["end_seconds"])
             start, end = float(scene["start_sec"]), float(scene["end_sec"])
         except (KeyError, TypeError, ValueError) as exc:
             raise RuntimeError("Every scene needs valid supplied narration timing.") from exc
@@ -495,8 +576,9 @@ def _validate_scene_plan(data: object, state: AgentState) -> tuple[list[dict], l
         })
         previous_end = expected_end
 
-    if config["traceability"]["require_segments_in_original_order"] and traced != segment_ids:
-        raise RuntimeError("Scene source_segment_ids must cover narration segments exactly once and in order.")
+    traced_once = list(dict.fromkeys(traced)) if config["scene_boundaries"]["force_one_segment_per_scene"] else traced
+    if config["traceability"]["require_segments_in_original_order"] and traced_once != segment_ids:
+        raise RuntimeError("Scenes must cover every narration segment in order.")
     if config["coverage"]["require_all_narration_segments_covered"] and set(traced) != set(segment_ids):
         raise RuntimeError("Scene plan does not cover every narration segment.")
     analysis = [{
@@ -771,6 +853,13 @@ def _validate_visual_plan(data: object, state: AgentState) -> list[dict]:
 
     if config["coverage"]["require_all_scenes_represented"] and set(traced_scenes) != set(scene_ids):
         raise RuntimeError("Visual plan must represent every approved scene.")
+    if config["coverage"]["require_all_required_scene_actions_represented"]:
+        for scene in scenes:
+            required_actions = scene.get("visible_actions") or []
+            if traced_scenes.count(scene["scene_id"]) < len(required_actions):
+                raise RuntimeError(
+                    f'{scene["scene_id"]} needs at least one focused visual beat for each required visible action.'
+                )
     if not config["coverage"]["allow_uncovered_narration_segments"] and set(traced_segments) != set(segment_ids):
         raise RuntimeError("Visual plan must cover every narration segment.")
     if config["ordering"]["require_scene_order"] and [scene_position[item] for item in traced_scenes] != sorted(scene_position[item] for item in traced_scenes):
@@ -796,7 +885,6 @@ def create_visual_beats(state: AgentState) -> dict:
     evaluations = list(state.get("llm_evaluations", []))
     error = state.get("visual_plan_feedback", "")
     issues = []
-    best = None
     maximum = int(config["retry_policy"]["max_retries"]) + 1
     attempt_state, fingerprint, used, remaining = _planning_budget(state, "visual", inputs, maximum)
     previous_error = attempt_state.get("visual", {}).get("last_error", "") if used else ""
@@ -842,7 +930,6 @@ def create_visual_beats(state: AgentState) -> dict:
                     "planning_attempts": _planning_attempts(attempt_state, "visual", fingerprint, used, reason),
                     "llm_evaluations": evaluations,
                 }
-            best = beats
             if config["faithfulness"]["semantic_review_enabled"]:
                 if hasattr(model, "format"):
                     model.format = "json"
@@ -887,19 +974,6 @@ def create_visual_beats(state: AgentState) -> dict:
                 used = maximum
                 break
             previous_error = error
-    if best:
-        logger.warning("Visual review advisory; continuing with current plan: %s", error)
-        return {
-            "visual_beats": best,
-            "visual_plan_needs_revision": False,
-            "visual_plan_revision_reason": None,
-            "visual_plan_issues": issues,
-            "visual_plan_feedback": "",
-            "count_adjustment": f"Planned {len(best)} visual beats dynamically across {len(state['scenes'])} scenes.",
-            "planning_attempts": _planning_attempts(attempt_state, "visual", fingerprint, used, error),
-            "warnings": [*state.get("warnings", []), f"Visual review warning: {error}"],
-            "llm_evaluations": evaluations,
-        }
     return {
         "visual_beats": [], "visual_plan_needs_revision": True,
         "visual_plan_revision_reason": error, "visual_plan_issues": issues,

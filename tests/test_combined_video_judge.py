@@ -102,7 +102,7 @@ def test_range_overlapping_two_shots_maps_to_both():
     ({"combined_video_judge_retry_target": "motion_planner"}, "plan_motion"),
     ({"combined_video_judge_retry_target": "video_generation"}, "create_scene_videos"),
     ({"combined_video_judge_retry_target": "plan_edit_timeline"}, "plan_edit_timeline"),
-    ({"combined_video_judge_error_exhausted": True}, END),
+    ({"combined_video_judge_error_exhausted": True}, "create_subtitles"),
 ])
 def test_combined_judge_routes(state_value, expected):
     assert agent_graph.route_combined_video_judge(state_value) == expected
@@ -157,6 +157,11 @@ def test_ollama_failure_is_controlled(tmp_path, monkeypatch):
     assert result["combined_video_judge_status"] == "error"
     assert result["combined_video_judge_error_exhausted"] is False
     assert result["pipeline_status"] == "combined_video_judge_api_retry"
+
+    result = judge.combined_video_judge({**state(tmp_path), **result})
+    assert result["combined_video_judge_error_exhausted"] is True
+    assert result["pipeline_status"] == "combined_video_judge_unavailable"
+    assert "continuing with the validated rough cut" in result["warnings"][-1]
 
 
 def test_malformed_ollama_response_fails_safely(tmp_path, monkeypatch):

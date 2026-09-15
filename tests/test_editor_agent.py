@@ -91,7 +91,7 @@ def test_motion_filter():
     assert "scale=1920:1080" in _motion_filter("static", 1, 1920, 1080)
 
 
-def test_approved_rough_cut_is_reused(monkeypatch, tmp_path):
+def test_validated_rough_cut_is_reused_when_judge_is_unavailable(monkeypatch, tmp_path):
     from PIL import Image
 
     rough_cut = tmp_path / "rough.mp4"
@@ -110,7 +110,7 @@ def test_approved_rough_cut_is_reused(monkeypatch, tmp_path):
         "aspect_ratio": "16:9",
         "width": 1920,
         "height": 1080,
-        "combined_video_judge_approved": True,
+        "combined_video_judge_error_exhausted": True,
         "rough_cut_file": str(rough_cut),
         "storyboard": [{"scene_number": 1, "start_time": "00:00", "end_time": "00:01"}],
         "image_files": [str(image)],

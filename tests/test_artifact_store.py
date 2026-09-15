@@ -20,6 +20,18 @@ class FakeMinio:
         self.uploads.append((bucket, object_name, path, content_type))
 
 
+class FakePublicMinio:
+    def __init__(self):
+        self.presigned = []
+
+    def bucket_exists(self, _bucket):
+        raise AssertionError("Public MinIO endpoint must not be used for storage operations.")
+
+    def presigned_get_object(self, bucket, object_name, expires):
+        self.presigned.append((bucket, object_name, expires))
+        return f"https://media.example.com/{bucket}/{object_name}"
+
+
 def test_archives_manifest_and_files_to_minio(tmp_path):
     image = tmp_path / "images" / "scene_01_v001.png"
     image.parent.mkdir()
@@ -63,6 +75,29 @@ def test_archives_manifest_and_files_to_minio(tmp_path):
         "thread-1/scene_videos/shot-001-c1.mp4",
         f"thread-1/artifact_history/{manifest.name}",
     ]
+
+
+def test_public_url_uploads_locally_and_only_signs_with_public_endpoint(tmp_path, monkeypatch):
+    image = tmp_path / "images" / "shot-001.png"
+    image.parent.mkdir()
+    image.write_bytes(b"image")
+    local = FakeMinio()
+    public = FakePublicMinio()
+    monkeypatch.setattr(artifact_store, "_client", lambda: local)
+    monkeypatch.setattr(artifact_store, "Minio", lambda *_args, **_kwargs: public)
+    monkeypatch.setenv("MINIO_PUBLIC_ENDPOINT", "https://media.example.com")
+    monkeypatch.setenv("MINIO_ACCESS_KEY", "test-access")
+    monkeypatch.setenv("MINIO_SECRET_KEY", "test-secret")
+    monkeypatch.setenv("MINIO_BUCKET", "test-artifacts")
+
+    url = artifact_store.public_artifact_url(
+        {"thread_id": "thread-1", "output_dir": str(tmp_path)}, str(image)
+    )
+
+    assert local.created == ["test-artifacts"]
+    assert local.uploads[0][:2] == ("test-artifacts", "thread-1/images/shot-001.png")
+    assert public.presigned[0][:2] == ("test-artifacts", "thread-1/images/shot-001.png")
+    assert url == "https://media.example.com/test-artifacts/thread-1/images/shot-001.png"
 
 
 if __name__ == "__main__":

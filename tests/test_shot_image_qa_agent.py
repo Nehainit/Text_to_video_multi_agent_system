@@ -1,4 +1,5 @@
 import json
+import threading
 from types import SimpleNamespace
 
 from PIL import Image
@@ -54,3 +55,30 @@ def test_shot_image_qa_visually_reviews_each_shot_and_targets_only_failure(monke
     assert result["shot_image_qa_results"][0]["retry_target"] == "image_generation"
     assert result["shot_image_qa_results"][0]["issues"][0]["type"] == "character_identity_drift"
     assert result["llm_evaluations"][0]["cost_usd"] == 0.001
+
+
+def test_shot_image_qa_reviews_shots_in_parallel_and_preserves_order(monkeypatch, tmp_path):
+    images = [tmp_path / f"shot-{index}.png" for index in (1, 2)]
+    for path in images:
+        Image.new("RGB", (8, 8), "gold").save(path)
+    barrier = threading.Barrier(2)
+
+    def review(agent, prompt, image_files, *, purpose):
+        barrier.wait(timeout=2)
+        return SimpleNamespace(content=json.dumps({
+            "approved": True, "animation_ready": True, "issues": [],
+        })), {"agent": agent, "purpose": purpose}
+
+    monkeypatch.setenv("IMAGE_GENERATION_WORKERS", "2")
+    monkeypatch.setattr(shot_image_qa_agent, "invoke_with_images_and_evaluation", review)
+    result = shot_image_qa_agent.review_shot_images({
+        "shot_plan": [{"shot_id": f"shot-00{index}", "characters_present": []} for index in (1, 2)],
+        "image_prompt_requests": [{"shot_id": f"shot-00{index}"} for index in (1, 2)],
+        "generated_images": [
+            {"shot_id": f"shot-00{index}", "generation_status": "success", "image_path": str(path)}
+            for index, path in zip((1, 2), images)
+        ],
+    })
+
+    assert [item["shot_id"] for item in result["shot_image_qa_results"]] == ["shot-001", "shot-002"]
+    assert [item["call_number"] for item in result["llm_evaluations"]] == [1, 2]

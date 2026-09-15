@@ -1,6 +1,8 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+from video_automation.agents.image_agent import _image_worker_count
 from video_automation.continuity_context import character_definitions
 from video_automation.models import invoke_with_images_and_evaluation
 from video_automation.prompts import SHOT_IMAGE_QA_CONFIG, SHOT_IMAGE_QA_SYSTEM_PROMPT
@@ -14,6 +16,14 @@ ISSUE_TYPES = {
     "camera_angle_mismatch", "composition_mismatch", "location_mismatch", "emotion_mismatch",
     "style_mismatch", "unsupported_object", "generation_artifact", "text_or_watermark", "other",
 }
+
+
+def _review_job(job: tuple[str, str, list[str]]) -> tuple[str, dict, dict]:
+    shot_id, prompt, image_files = job
+    response, evaluation = invoke_with_images_and_evaluation(
+        "shot-image-qa", prompt, image_files, purpose="review_shot_image",
+    )
+    return shot_id, _validate_result(_parse_json(response.content), shot_id), evaluation
 
 
 def _validate_result(value: object, shot_id: str) -> dict:
@@ -61,16 +71,17 @@ def review_shot_images(state: AgentState) -> dict:
         if isinstance(character, dict) and character.get("character_id") and index < len(character_files)
     }
     evaluations = list(state.get("llm_evaluations", []))
-    results = []
+    results_by_shot = {}
+    jobs = []
 
     for shot, prompt_request, image_result in zip(shots, requests, generated):
         shot_id = shot["shot_id"]
         if shot_id not in targets and shot_id in previous:
-            results.append(previous[shot_id])
+            results_by_shot[shot_id] = previous[shot_id]
             continue
         image_file = image_result.get("image_path")
         if image_result.get("generation_status") != "success" or not image_file or not Path(image_file).is_file():
-            results.append({
+            results_by_shot[shot_id] = {
                 "shot_id": shot_id, "approved": False, "animation_ready": False,
                 "issues": [{
                     "type": "generation_artifact", "severity": "major",
@@ -78,7 +89,7 @@ def review_shot_images(state: AgentState) -> dict:
                     "correction": "Regenerate the same approved shot image.",
                 }],
                 "retry_target": "image_generation",
-            })
+            }
             continue
 
         character_references = [
@@ -105,15 +116,22 @@ def review_shot_images(state: AgentState) -> dict:
             "style_reference": {"file": style_file} if style_file else None,
             "image_order": image_files,
         }
-        response, evaluation = invoke_with_images_and_evaluation(
-            "shot-image-qa",
+        jobs.append((
+            shot_id,
             f"{SHOT_IMAGE_QA_SYSTEM_PROMPT}\n\nInputs:\n{json.dumps(payload, ensure_ascii=False)}",
             image_files,
-            purpose="review_shot_image",
-        )
-        evaluation["call_number"] = len(evaluations) + 1
-        evaluations.append(evaluation)
-        results.append(_validate_result(_parse_json(response.content), shot_id))
+        ))
+
+    if jobs:
+        with ThreadPoolExecutor(
+            max_workers=_image_worker_count(len(jobs)), thread_name_prefix="shot-image-qa",
+        ) as pool:
+            for shot_id, result, evaluation in pool.map(_review_job, jobs):
+                evaluation["call_number"] = len(evaluations) + 1
+                evaluations.append(evaluation)
+                results_by_shot[shot_id] = result
+
+    results = [results_by_shot[shot["shot_id"]] for shot in shots]
 
     return {
         "shot_image_qa_results": results,

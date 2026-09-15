@@ -243,7 +243,7 @@ def _controlled_failure(state: AgentState, error: Exception | str, *, model: str
     failures = int(state.get("combined_video_judge_error_count", 0)) + 1
     exhausted = failures > int(COMBINED_VIDEO_JUDGE_CONFIG["max_inference_retries"])
     logger.error("combined_video_judge failed model=%s attempt=%s exhausted=%s error=%s", model, failures, exhausted, error)
-    return {
+    result = {
         "combined_video_judge_report": None,
         "combined_video_judge_approved": False,
         "combined_video_judge_status": "error",
@@ -256,8 +256,14 @@ def _controlled_failure(state: AgentState, error: Exception | str, *, model: str
         "video_retry_shots": [],
         "motion_plan_retry_shots": [],
         "shot_image_qa_retry_shots": [],
-        "pipeline_status": "combined_video_judge_failed" if exhausted else "combined_video_judge_api_retry",
+        "pipeline_status": "combined_video_judge_unavailable" if exhausted else "combined_video_judge_api_retry",
     }
+    if exhausted:
+        result["warnings"] = [
+            *state.get("warnings", []),
+            f"Final video judge unavailable after {failures} attempts; continuing with the validated rough cut: {error}",
+        ]
+    return result
 
 
 def combined_video_judge(state: AgentState) -> dict:

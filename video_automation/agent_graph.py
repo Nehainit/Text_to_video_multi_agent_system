@@ -36,7 +36,9 @@ def persistent_checkpointer(path: Path):
 def route_combined_video_judge(state: AgentState) -> str:
     if state.get("combined_video_judge_approved"):
         return "create_subtitles"
-    if state.get("combined_video_judge_error_exhausted") or state.get("video_judge_refinement_exhausted"):
+    if state.get("combined_video_judge_error_exhausted"):
+        return "create_subtitles"
+    if state.get("video_judge_refinement_exhausted"):
         return END
     return {
         "image_generation": "create_storyboard",

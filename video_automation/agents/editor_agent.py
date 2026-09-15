@@ -277,7 +277,9 @@ def edit_video(state: AgentState) -> dict[str, str]:
     _validate_counts(state, timings)
     total_seconds = max(float(timing["end_seconds"]) for timing in timings)
     width, height = _resolution(state)
-    approved_rough_cut = Path(state["rough_cut_file"]) if state.get("combined_video_judge_approved") and state.get("rough_cut_file") else None
+    approved_rough_cut = Path(state["rough_cut_file"]) if (
+        state.get("combined_video_judge_approved") or state.get("combined_video_judge_error_exhausted")
+    ) and state.get("rough_cut_file") else None
     clips = []
     durations = []
     scene_video_files = state.get("scene_video_files") or []

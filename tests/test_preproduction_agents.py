@@ -174,7 +174,17 @@ class FakeModel:
         return type("Response", (), {"content": json.dumps(value)})()
 
 
-def test_preproduction_agents_keep_narration_and_visual_plan_aligned():
+def test_preproduction_agents_keep_narration_and_visual_plan_aligned(monkeypatch):
+    monkeypatch.setitem(
+        preproduction_agents.SCENE_PLANNING_CONFIG["scene_boundaries"],
+        "force_one_segment_per_scene",
+        False,
+    )
+    monkeypatch.setitem(
+        preproduction_agents.VISUAL_PLANNING_CONFIG["coverage"],
+        "require_all_required_scene_actions_represented",
+        False,
+    )
     original = preproduction_agents.load_model
     preproduction_agents.load_model = lambda _name: FakeModel()
     state = {
@@ -290,7 +300,7 @@ def test_scene_review_rejection_keeps_last_structurally_valid_plan(monkeypatch):
     assert result["warnings"] == ["Scene review warning: The scene could be more faithful."]
 
 
-def test_visual_review_rejection_keeps_last_structurally_valid_plan(monkeypatch):
+def test_visual_review_rejection_fails_closed_after_retries(monkeypatch):
     visual_plan = {
         "needs_revision": False,
         "revision_reason": None,
@@ -312,9 +322,10 @@ def test_visual_review_rejection_keeps_last_structurally_valid_plan(monkeypatch)
     monkeypatch.setattr(preproduction_agents, "_validate_visual_plan", lambda _data, _state: visual_plan["visual_beats"])
     result = preproduction_agents.create_visual_beats({"scenes": [{"scene_id": "scene-001"}], "warnings": []})
 
-    assert result["visual_plan_needs_revision"] is False
-    assert result["visual_beats"] == visual_plan["visual_beats"]
-    assert result["warnings"] == ["Visual review warning: The visual could be more faithful."]
+    assert result["visual_plan_needs_revision"] is True
+    assert result["visual_beats"] == []
+    assert result["visual_plan_revision_reason"] == "The visual could be more faithful."
+    assert result["planning_attempts"]["visual"]["used"] == 3
 
 
 def test_narration_requests_story_revision_instead_of_changing_plot(monkeypatch):
@@ -408,6 +419,12 @@ def test_narration_regenerates_when_text_is_not_supported_by_parent_beat(monkeyp
 
 
 def test_scene_planner_normalizes_timing_then_checks_faithfulness(monkeypatch):
+    monkeypatch.setitem(
+        preproduction_agents.SCENE_PLANNING_CONFIG["scene_boundaries"],
+        "force_one_segment_per_scene",
+        False,
+    )
+
     def candidate(*, end=4.0, action="Raja and Chuha eat the mango together."):
         return {
             "needs_revision": False,
@@ -476,6 +493,12 @@ def test_scene_planner_normalizes_timing_then_checks_faithfulness(monkeypatch):
 
 
 def test_scene_planner_derives_ordered_segments_and_timing(monkeypatch):
+    monkeypatch.setitem(
+        preproduction_agents.SCENE_PLANNING_CONFIG["scene_boundaries"],
+        "force_one_segment_per_scene",
+        False,
+    )
+
     class SceneModel:
         def invoke(self, prompt):
             if prompt[0]["content"] == preproduction_agents.SCENE_FAITHFULNESS_REVIEW_SYSTEM_PROMPT:
@@ -529,6 +552,95 @@ def test_scene_planner_derives_ordered_segments_and_timing(monkeypatch):
     ]
     assert [(scene["start_sec"], scene["end_sec"]) for scene in result["scenes"]] == [(0.0, 2.0), (2.0, 3.0)]
     assert [scene["location_id"] for scene in result["scenes"]] == ["location-001", "location-002"]
+
+
+def test_scene_planner_rejects_collapsing_multiple_segments_into_one_scene(monkeypatch):
+    class SceneModel:
+        def invoke(self, _prompt):
+            return type("Response", (), {"content": json.dumps({
+                "needs_revision": False,
+                "revision_reason": None,
+                "scenes": [{
+                    "segment_count": 3,
+                    "location": "Enchanted forest",
+                    "characters_present": [],
+                    "scene_goal": "Complete the journey.",
+                    "visible_actions": ["The travellers cross the forest and reach the palace."],
+                    "emotion": "hopeful",
+                    "story_purpose": "Show the complete journey.",
+                }],
+            })})()
+
+    monkeypatch.setattr(preproduction_agents, "load_model", lambda _name: SceneModel())
+    result = preproduction_agents.plan_scenes({
+        "narration_segments": [
+            {"segment_id": f"segment-{index:03}", "parent_beat_ids": [], "text": str(index)}
+            for index in range(1, 4)
+        ],
+        "narration_segment_timings": [
+            {"segment_id": f"segment-{index:03}", "start_seconds": index - 1, "end_seconds": index}
+            for index in range(1, 4)
+        ],
+        "actual_narration_seconds": 3.0,
+        "parsed_requirements": {"characters": []},
+    })
+
+    assert result["scene_plan_needs_revision"] is True
+    assert result["scene_plan_revision_reason"] == "Every scene must map to exactly one narration segment."
+
+
+def test_scene_planner_splits_one_segment_across_multiple_locations(monkeypatch):
+    class SceneModel:
+        def invoke(self, prompt):
+            if prompt[0]["content"] == preproduction_agents.SCENE_FAITHFULNESS_REVIEW_SYSTEM_PROMPT:
+                value = {"approved": True, "issues": []}
+            else:
+                value = {
+                    "needs_revision": False,
+                    "revision_reason": None,
+                    "scenes": [
+                        {
+                            "source_segment_number": 1,
+                            "location": location,
+                            "characters_present": ["raja_001", "rani_001"],
+                            "scene_goal": goal,
+                            "visible_actions": [action],
+                            "emotion": "hopeful",
+                            "story_purpose": "Advance the journey home.",
+                        }
+                        for location, goal, action in [
+                            ("Fairy glade", "Receive magical help.", "Raja and Rani meet a helpful fairy."),
+                            ("River of fire", "Cross the dangerous river.", "Raja and Rani cross the river of fire."),
+                            ("Maze of illusions", "Find the path through the maze.", "Raja and Rani navigate the maze."),
+                        ]
+                    ],
+                }
+            return type("Response", (), {"content": json.dumps(value)})()
+
+    monkeypatch.setattr(preproduction_agents, "load_model", lambda _name: SceneModel())
+    result = preproduction_agents.plan_scenes({
+        "narration_segments": [{
+            "segment_id": "segment-001",
+            "parent_beat_ids": ["beat-001"],
+            "text": "A fairy helps Raja and Rani cross a river of fire and navigate a maze.",
+        }],
+        "narration_segment_timings": [{
+            "segment_id": "segment-001", "start_seconds": 0.0, "end_seconds": 9.0,
+        }],
+        "actual_narration_seconds": 9.0,
+        "production_bible": {"characters": [
+            {"character_id": "raja_001", "name": "Raja"},
+            {"character_id": "rani_001", "name": "Rani"},
+        ]},
+    })
+
+    assert [scene["source_segment_ids"] for scene in result["scenes"]] == [["segment-001"]] * 3
+    assert [(scene["start_sec"], scene["end_sec"]) for scene in result["scenes"]] == [
+        (0.0, 3.0), (3.0, 6.0), (6.0, 9.0),
+    ]
+    assert [scene["location_id"] for scene in result["scenes"]] == [
+        "location-001", "location-002", "location-003",
+    ]
 
 
 def test_scene_planner_accepts_populated_scenes_when_model_revision_flag_disagrees(monkeypatch):
@@ -648,6 +760,41 @@ def test_narration_retries_segment_count_and_derives_traceability(monkeypatch):
     ]
 
 
+def test_narration_falls_back_to_approved_beats_after_malformed_json(monkeypatch):
+    class BrokenNarrationModel:
+        format = "json"
+
+        def __init__(self):
+            self.formats = []
+
+        def invoke(self, _prompt):
+            self.formats.append(self.format)
+            return type("Response", (), {"content": '{"narration_segments":[{"text":"unfinished}'})()
+
+    model = BrokenNarrationModel()
+    monkeypatch.setattr(preproduction_agents, "load_model", lambda _name: model)
+    result = preproduction_agents.create_narration_script({
+        "duration": "10 seconds",
+        "language": "English",
+        "story_outline": {
+            "structure": [
+                {"beat_id": "beat-001", "description": "Ganesha enters the magical forest."},
+                {"beat_id": "beat-002", "description": "He guides the mouse safely home."},
+            ],
+        },
+        "parsed_requirements": {"duration_seconds": 10, "language": "English"},
+    })
+
+    assert result["narration_script"] == (
+        "Ganesha enters the magical forest. He guides the mouse safely home."
+    )
+    assert [segment["parent_beat_ids"] for segment in result["narration_segments"]] == [
+        ["beat-001"], ["beat-002"],
+    ]
+    assert all(value == preproduction_agents.NARRATION_OUTPUT_SCHEMA for value in model.formats)
+    assert "using approved story beats" in result["warnings"][-1]
+
+
 def test_scene_planner_surfaces_revision_instead_of_inventing_visuals(monkeypatch):
     class RevisionModel:
         def invoke(self, prompt):
@@ -739,6 +886,62 @@ def test_visual_planner_allows_multiple_beats_for_one_segment(monkeypatch):
         "generate_visual_plan", "generate_visual_plan", "review_visual_plan_faithfulness",
         "generate_visual_plan", "review_visual_plan_faithfulness",
     ]
+
+
+def test_visual_planner_splits_each_required_scene_action(monkeypatch):
+    def visual_beat(action):
+        return {
+            "visual_action": action,
+            "visual_focus": action.rstrip("."),
+            "emotional_intent": "hopeful",
+            "continuity_in": "Raja and Rani continue through the enchanted forest.",
+            "continuity_out": action,
+            "story_purpose": "Advance their journey home.",
+        }
+
+    actions = [
+        "Raja and Rani meet a helpful fairy.",
+        "Raja and Rani cross the river of fire.",
+        "Raja and Rani navigate the maze of illusions.",
+    ]
+    collapsed = {
+        "needs_revision": False,
+        "revision_reason": None,
+        "scenes": [{"visual_beats": [visual_beat(" ".join(actions))]}],
+    }
+    corrected = {
+        "needs_revision": False,
+        "revision_reason": None,
+        "scenes": [{"visual_beats": [visual_beat(action) for action in actions]}],
+    }
+
+    class VisualModel:
+        def __init__(self):
+            self.responses = iter([collapsed, corrected, {"approved": True, "issues": []}])
+            self.prompts = []
+
+        def invoke(self, prompt):
+            self.prompts.append(prompt)
+            return type("Response", (), {"content": json.dumps(next(self.responses))})()
+
+    model = VisualModel()
+    monkeypatch.setattr(preproduction_agents, "load_model", lambda _name: model)
+    result = preproduction_agents.create_visual_beats({
+        "story_outline": {"structure": [{"beat_id": "beat-001"}]},
+        "narration_segments": [{
+            "segment_id": "segment-001",
+            "parent_beat_ids": ["beat-001"],
+            "text": "With magical help, Raja and Rani cross the river and maze.",
+        }],
+        "scenes": [{
+            "scene_id": "scene-001",
+            "source_segment_ids": ["segment-001"],
+            "visible_actions": actions,
+        }],
+    })
+
+    assert [beat["visual_action"] for beat in result["visual_beats"]] == actions
+    assert "one focused visual beat" in model.prompts[1][1]["content"]
 
 
 def test_visual_planner_accepts_populated_plan_when_revision_flag_disagrees(monkeypatch):

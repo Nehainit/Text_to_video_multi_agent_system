@@ -35,6 +35,10 @@ visual_planning:
 
     Create visual beats dynamically based on visible actions and emotional changes.
 
+    Return at least one visual beat for every entry in scene.visible_actions.
+    Keep each entry in its own beat; never combine sequential actions or distinct locations into one visual_action.
+    Multiple subjects participating in the same action may remain in one beat.
+
     A single narration segment may require multiple visual beats.
 
     Multiple narration segments may contribute to the same visual beat when they describe one continuous visible action.
@@ -164,6 +168,7 @@ visual_planning:
     parent story beats, approved characters, requested visual style, and user requirements. Check complete scene/action/narration
     coverage, event order, approved characters/locations/props, continuity, one primary visible moment,
     absence of filler, and absence of camera, lens, shot, clip, or video-prompt decisions.
+    Reject a plan that combines separate sequential actions or distinct locations in one visual beat.
     Do not rewrite the visual plan, improve cinematography, or invent alternatives.
     Return JSON only as {"approved": true, "issues": []} or
     {"approved": false, "issues": ["Specific issue"]}.

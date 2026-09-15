@@ -36,13 +36,18 @@ scene_planning:
 
     Create a new scene only when there is a meaningful change in location, time, characters present, narrative goal, conflict/outcome, or major emotional state.
 
+    Always create a new scene when narration moves to a distinct location, even inside one narration segment.
+
     Identify all visible actions needed to represent the narration.
 
     A single narration segment may contain multiple visible actions.
 
     Multiple narration segments may map to one scene.
 
-    For each scene, return segment_count: the number of consecutive narration segments grouped into that scene.
+    For each scene, return source_segment_number: the 1-based narration segment represented by that scene.
+    More than one consecutive scene may use the same source_segment_number when that narration segment contains
+    distinct locations or visual situations.
+    Keep source_segment_number values in narration order and represent every supplied narration segment at least once.
 
     The backend assigns scene_id, location_id, source_segment_ids, start_sec, and end_sec. Do not return those fields.
 
@@ -59,7 +64,9 @@ scene_planning:
 
     Scene Boundary Principle
 
-    Do NOT assume:
+    When force_one_segment_per_scene is true, map every scene to exactly one narration segment.
+    Return multiple consecutive scenes with the same source_segment_number when a segment moves through
+    distinct locations or visual situations. Otherwise, do NOT assume:
 
     1 narration segment = 1 scene.
 
@@ -74,7 +81,7 @@ scene_planning:
       "revision_reason": null,
       "scenes": [
         {
-          "segment_count": 2,
+          "source_segment_number": 1,
           "location": "A mango grove at sunrise",
           "characters_present": ["character-001", "character-002"],
           "scene_goal": "Raja helps Chuha reach the mango.",
@@ -119,6 +126,8 @@ scene_planning:
     scene timing outside supplied narration timing
 
     scene boundaries that change the meaning of the narration
+
+    missing scene boundaries for distinct narrated locations
 
     invented actions that materially change what happens
 
@@ -173,7 +182,7 @@ scene_planning:
     split_on_major_goal_change: true
     split_on_major_outcome_change: true
     split_on_major_emotional_change: false
-    force_one_segment_per_scene: false
+    force_one_segment_per_scene: true
 
   visible_actions:
     allow_multiple_actions_per_segment: true

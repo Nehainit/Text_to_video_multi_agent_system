@@ -16,9 +16,17 @@ A LangGraph pipeline that turns a story prompt into a narrated short video. It p
   <a href="https://raw.githubusercontent.com/Nehainit/Text_to_video_multi_agent_system/main/demo/robot-story.mp4"><strong>▶ Watch the 17-second 1080×1920 demo</strong></a>
 </p>
 
+## Pipeline versions
+
+| Version | Video workflow | Status |
+|---|---|---|
+| **Version 1 — narrated storyboard** | Generates still story images, narration, and an FFmpeg-assembled reel. | Baseline represented by the robot demo above. |
+| **Version 2 — animated shots** | Adds per-shot motion plans and Magnific/Kling image-to-video generation, with FFmpeg camera movement as a continuity fallback when animation is unavailable. | Functional; provider output depends on successful external generation. |
+| **Version 3 — resilient multi-agent pipeline** | Adds deterministic validators, visual QA, HITL checkpoints, targeted per-shot retries, concurrent media workers, checkpoint/resume, and MinIO artifact publishing. | **Current — Active Development.** |
+
 ## Engineering snapshot
 
-| **189** automated tests | **24** graph stages | **4** judge retry routes | **2 + 3** default media workers |
+| **195** automated tests | **24** graph stages | **4** judge retry routes | **2 + 2 + 3** image / QA / video workers |
 |---:|---:|---:|---:|
 | **3** aspect ratios | **4** LLM providers | **SQLite** checkpoint + resume | **Per-shot** regeneration |
 
@@ -41,7 +49,7 @@ flowchart TB
     subgraph GEN["Media generation"]
         direction LR
         R["Character + mood references"] --> I["Shot images<br/>ThreadPool: 2 workers"]
-        I --> IQ["Image QA"] --> HV{"Storyboard HITL"}
+        I --> IQ["Image QA<br/>ThreadPool: 2 workers"] --> HV{"Storyboard HITL"}
         HV --> M["Motion plans"] --> V["Shot videos<br/>ThreadPool: 3 workers"]
     end
 
@@ -114,9 +122,10 @@ demo/                    Example generated video
 The pipeline uses Python's standard-library `ThreadPoolExecutor` for the network-bound generation stages:
 
 - **Shot images:** `IMAGE_GENERATION_WORKERS` defaults to 2 and is clamped to 1–4. Independent shots run concurrently; shots with `previous_shot_id` continuity dependencies wait for their predecessor.
+- **Shot-image QA:** vision reviews reuse `IMAGE_GENERATION_WORKERS` (default 2). Reviews execute concurrently, while `pool.map` preserves approved-shot order for deterministic retries and evaluation records.
 - **Shot videos:** `VIDEO_GENERATION_WORKERS` defaults to 3 and is clamped to 1–4. Independent shot-video jobs run concurrently, while retries and FFmpeg fallback remain isolated per shot.
 
-Both paths use `pool.map`, so results stay in shot order even though provider requests execute in parallel. The rest of the LangGraph workflow remains sequential because each stage consumes the previous stage's validated output.
+These are Python threads for overlapping network and model I/O, not CPU-bound multiprocessing. The rest of the LangGraph workflow remains sequential because each stage consumes the previous stage's validated output.
 
 ## Requirements
 
@@ -144,6 +153,35 @@ ollama pull qwen2.5vl:3b
 ollama serve
 ```
 
+## MinIO and Cloudflare Tunnel
+
+Magnific cannot download an image from `localhost`. The backend therefore uploads each approved storyboard frame to local MinIO, creates a time-limited presigned URL using the public endpoint, and sends that HTTPS URL to Magnific/Kling for image-to-video generation.
+
+```text
+Backend → localhost:9000 (upload to MinIO)
+Magnific → Cloudflare HTTPS URL → localhost:9000 (download presigned image)
+```
+
+Start MinIO's S3 API on port `9000`, then keep this development tunnel running in a separate terminal:
+
+```bash
+cloudflared tunnel --url http://localhost:9000
+```
+
+Copy the generated `https://...trycloudflare.com` URL into `.env`:
+
+```dotenv
+MINIO_ENDPOINT=localhost:9000
+MINIO_ACCESS_KEY=minioadmin
+MINIO_SECRET_KEY=minioadmin
+MINIO_BUCKET=softframe-artifacts
+MINIO_SECURE=false
+MINIO_REGION=us-east-1
+MINIO_PUBLIC_ENDPOINT=https://your-current-tunnel.trycloudflare.com
+```
+
+`MINIO_ENDPOINT` is used for trusted local uploads; `MINIO_PUBLIC_ENDPOINT` is used only to sign externally reachable downloads. Tunnel port `9000`, not the MinIO console on `9001`. Quick-tunnel URLs change after restart and are intended for development; use a named tunnel or public object storage for production.
+
 ## Run the web app
 
 In a second terminal:
@@ -168,4 +206,4 @@ python -m video_automation.main
 .venv/bin/python -m pytest -q
 ```
 
-The suite currently contains 189 tests.
+The suite currently contains 195 tests.

@@ -48,17 +48,10 @@ def public_artifact_url(state: dict, file_path: str) -> str | None:
     public_endpoint = os.getenv("MINIO_PUBLIC_ENDPOINT")
     if not public_endpoint:
         return None
-    if Minio is None:
-        raise RuntimeError("Install the 'minio' package to publish image-to-video inputs.")
-    if not os.getenv("MINIO_ACCESS_KEY") or not os.getenv("MINIO_SECRET_KEY"):
-        raise RuntimeError("Set MINIO_ACCESS_KEY and MINIO_SECRET_KEY with MINIO_PUBLIC_ENDPOINT.")
+    client = _client()
+    if client is None:
+        raise RuntimeError("Configure local MinIO storage before publishing image-to-video inputs.")
     parsed = urlparse(public_endpoint if "://" in public_endpoint else f"https://{public_endpoint}")
-    client = Minio(
-        parsed.netloc or parsed.path,
-        access_key=os.environ["MINIO_ACCESS_KEY"],
-        secret_key=os.environ["MINIO_SECRET_KEY"],
-        secure=parsed.scheme == "https",
-    )
     bucket = os.getenv("MINIO_BUCKET", "softframe-artifacts")
     if not client.bucket_exists(bucket):
         client.make_bucket(bucket)
@@ -71,7 +64,14 @@ def public_artifact_url(state: dict, file_path: str) -> str | None:
         str(path),
         content_type=mimetypes.guess_type(path)[0] or "application/octet-stream",
     )
-    return client.presigned_get_object(bucket, object_name, expires=timedelta(minutes=30))
+    public_client = Minio(
+        parsed.netloc or parsed.path,
+        access_key=os.environ["MINIO_ACCESS_KEY"],
+        secret_key=os.environ["MINIO_SECRET_KEY"],
+        secure=parsed.scheme == "https",
+        region=os.getenv("MINIO_REGION", "us-east-1"),
+    )
+    return public_client.presigned_get_object(bucket, object_name, expires=timedelta(minutes=30))
 
 
 def _files(state: dict) -> list[Path]:
